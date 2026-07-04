@@ -24,4 +24,23 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+
+        // Sin esta línea, Laravel intenta redirigir a la ruta 'login' que no existe en una API pura
+        $exceptions->render(function (\Illuminate\Auth\AuthenticationException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'No autenticado. Incluye un token válido en el header Authorization.',
+                    'code'    => 'UNAUTHENTICATED',
+                ], 401);
+            }
+        });
+
+        $exceptions->render(function (\Illuminate\Auth\Access\AuthorizationException $e, Request $request) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'No tienes permiso para realizar esta acción.',
+                    'code'    => 'FORBIDDEN',
+                ], 403);
+            }
+        });
     })->create();
