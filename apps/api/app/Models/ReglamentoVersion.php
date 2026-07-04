@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ReglamentoVersion extends Model
 {
+    protected $table = 'reglamento_versiones';
+
     protected $fillable = [
         'numero_version',
         'nombre',
