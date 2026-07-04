@@ -88,7 +88,7 @@ services:
       - POSTGRES_USER=vocare
       - POSTGRES_PASSWORD=vocare_secret
     ports:
-      - "5432:5432"
+      - "5433:5432"  # Host 5433 → Container 5432 (evita conflicto con postgres local)
     volumes:
       - db_data:/var/lib/postgresql/data
 
