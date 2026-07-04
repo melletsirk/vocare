@@ -1,0 +1,8 @@
+*.md
+!README.md
+
+# Ignore Docker volumes if they get created locally instead of named volumes (though they shouldn't)
+# Ignore local environment files if any
+.env
+.env.*
+!.env.example
