@@ -61,6 +61,11 @@ class Postulacion extends Model
         return $this->hasOne(Expediente::class);
     }
 
+    public function evaluacion(): HasOne
+    {
+        return $this->hasOne(Evaluacion::class);
+    }
+
     /** ¿Ya fue enviada formalmente? */
     public function estaEnviada(): bool
     {
