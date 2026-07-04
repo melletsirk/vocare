@@ -2,7 +2,9 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ConvocatoriasController;
+use App\Http\Controllers\Api\V1\EvidenciasController;
 use App\Http\Controllers\Api\V1\PlazasController;
+use App\Http\Controllers\Api\V1\PostulacionesController;
 use App\Http\Controllers\Api\V1\TablasEvaluacionController;
 use Illuminate\Support\Facades\Route;
 
@@ -60,6 +62,29 @@ Route::prefix('v1')->group(function () {
         Route::prefix('plazas')->group(function () {
             Route::get('{plaza}', [PlazasController::class, 'show'])->name('plazas.show');
             Route::patch('{plaza}', [PlazasController::class, 'update'])->name('plazas.update');
+        });
+
+        // -------------------------------------------------------------------------
+        // Postulaciones
+        // -------------------------------------------------------------------------
+        Route::prefix('postulaciones')->group(function () {
+            Route::get('/', [PostulacionesController::class, 'index'])->name('postulaciones.index');
+            Route::post('/', [PostulacionesController::class, 'store'])->name('postulaciones.store');
+            Route::get('{postulacion}', [PostulacionesController::class, 'show'])->name('postulaciones.show');
+            Route::post('{postulacion}/enviar', [PostulacionesController::class, 'enviar'])->name('postulaciones.enviar');
+            Route::patch('{postulacion}/estado', [PostulacionesController::class, 'actualizarEstado'])->name('postulaciones.estado');
+
+            // Evidencias anidadas
+            Route::get('{postulacion}/evidencias', [EvidenciasController::class, 'index'])->name('evidencias.index');
+            Route::post('{postulacion}/evidencias', [EvidenciasController::class, 'store'])->name('evidencias.store');
+        });
+
+        // -------------------------------------------------------------------------
+        // Evidencias individuales
+        // -------------------------------------------------------------------------
+        Route::prefix('evidencias')->group(function () {
+            Route::get('{evidencia}/archivo', [EvidenciasController::class, 'descargar'])->name('evidencias.descargar');
+            Route::patch('{evidencia}/validacion', [EvidenciasController::class, 'validar'])->name('evidencias.validar');
         });
 
     });
