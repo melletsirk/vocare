@@ -22,6 +22,8 @@ class Evidencia extends Model
     protected $fillable = [
         'expediente_id',
         'variable_id',
+        'indicador_id',       // ID del indicador del snapshot al que se vincula la evidencia
+        'puntaje_indicador',  // Puntaje que aporta esta evidencia (tomado del indicador)
         'nombre_original',
         'ruta_archivo',
         'mime_type',
@@ -38,10 +40,11 @@ class Evidencia extends Model
     protected function casts(): array
     {
         return [
-            'fecha_emision'    => 'date',
-            'fecha_validacion' => 'datetime',
-            'reutilizada'      => 'boolean',
-            'tamano_bytes'     => 'integer',
+            'fecha_emision'     => 'date',
+            'fecha_validacion'  => 'datetime',
+            'reutilizada'       => 'boolean',
+            'tamano_bytes'      => 'integer',
+            'puntaje_indicador' => 'decimal:2',
         ];
     }
 

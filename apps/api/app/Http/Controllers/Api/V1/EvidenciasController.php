@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Evidencia;
 use App\Models\Expediente;
+use App\Models\Postulacion;
 use App\Models\Variable;
 use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
@@ -52,6 +53,8 @@ class EvidenciasController extends Controller
                 'mimes:pdf,jpg,jpeg,png',
             ],
             'variable_id'   => ['required', 'exists:variables,id'],
+            'indicador_id'  => ['nullable', 'exists:indicadores,id'],
+            'puntaje_indicador' => ['nullable', 'numeric', 'min:0'],
             'fecha_emision' => ['nullable', 'date', 'before_or_equal:today'],
         ]);
 
@@ -89,14 +92,16 @@ class EvidenciasController extends Controller
 
         // Registrar en BD
         $evidencia = $expediente->evidencias()->create([
-            'variable_id'    => $request->variable_id,
-            'nombre_original' => $archivo->getClientOriginalName(),
-            'ruta_archivo'   => $rutaRelativa,
-            'mime_type'      => $mimeReal,
-            'tamano_bytes'   => $archivo->getSize(),
-            'hash_archivo'   => $hash,
-            'fecha_emision'  => $request->fecha_emision,
-            'estado'         => Evidencia::ESTADO_PENDIENTE,
+            'variable_id'       => $request->variable_id,
+            'indicador_id'      => $request->indicador_id,
+            'puntaje_indicador' => $request->puntaje_indicador,
+            'nombre_original'   => $archivo->getClientOriginalName(),
+            'ruta_archivo'      => $rutaRelativa,
+            'mime_type'         => $mimeReal,
+            'tamano_bytes'      => $archivo->getSize(),
+            'hash_archivo'      => $hash,
+            'fecha_emision'     => $request->fecha_emision,
+            'estado'            => Evidencia::ESTADO_PENDIENTE,
         ]);
 
         // Actualizar total de bytes del expediente
@@ -156,6 +161,9 @@ class EvidenciasController extends Controller
                 'nullable',
                 'string',
             ],
+            // El evaluador puede vincular/corregir el indicador al validar
+            'indicador_id'      => ['nullable', 'exists:indicadores,id'],
+            'puntaje_indicador' => ['nullable', 'numeric', 'min:0'],
         ]);
 
         $old = $evidencia->toArray();
@@ -168,7 +176,7 @@ class EvidenciasController extends Controller
 
         // Si hay observación en evidencia, poner la postulación también como observada
         if ($data['estado'] === Evidencia::ESTADO_OBSERVADA) {
-            $evidencia->expediente->postulacion->update(['estado' => Postulacion::ESTADO_OBSERVADA ?? 'observada']);
+            $evidencia->expediente->postulacion->update(['estado' => Postulacion::ESTADO_OBSERVADA]);
         }
 
         AuditService::log('evidencia.validada', $evidencia, $old, $evidencia->fresh()->toArray());

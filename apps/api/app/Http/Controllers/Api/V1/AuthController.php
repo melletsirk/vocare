@@ -50,6 +50,41 @@ class AuthController extends Controller
     }
 
     /**
+     * POST /api/v1/auth/register
+     * Registro público — asigna siempre el rol 'postulante'.
+     * El rol NO es elegible por el usuario.
+     */
+    public function register(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'name'                  => ['required', 'string', 'max:150'],
+            'dni'                   => ['required', 'string', 'size:8', 'unique:users,dni'],
+            'email'                 => ['required', 'email', 'unique:users,email'],
+            'password'              => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $user = User::create([
+            'name'      => $data['name'],
+            'dni'       => $data['dni'],
+            'email'     => $data['email'],
+            'password'  => \Illuminate\Support\Facades\Hash::make($data['password']),
+            'is_active' => true,
+        ]);
+
+        // Siempre postulante — nunca expuesto al usuario
+        $user->assignRole('postulante');
+
+        $token = $user->createToken('api-token')->plainTextToken;
+
+        AuditService::log('registro', $user, [], ['rol' => 'postulante']);
+
+        return response()->json([
+            'token' => $token,
+            'user'  => $this->formatUser($user),
+        ], 201);
+    }
+
+    /**
      * POST /api/v1/auth/logout
      */
     public function logout(Request $request): JsonResponse

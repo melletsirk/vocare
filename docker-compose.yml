@@ -16,9 +16,12 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./apps/api:/var/www/api
+      - expedientes_data:/var/www/api/storage/app/expedientes  # Persistencia de archivos subidos
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - DB_CONNECTION=pgsql
       - DB_HOST=postgres
@@ -45,10 +48,13 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./apps/api:/var/www/api
+      - expedientes_data:/var/www/api/storage/app/expedientes  # Mismo volumen que api
     command: php artisan queue:work --sleep=3 --tries=3
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - DB_CONNECTION=pgsql
       - DB_HOST=postgres
@@ -66,10 +72,13 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./apps/api:/var/www/api
+      - expedientes_data:/var/www/api/storage/app/expedientes  # Mismo volumen que api
     command: php artisan schedule:work
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - DB_CONNECTION=pgsql
       - DB_HOST=postgres
@@ -91,6 +100,11 @@ services:
       - "5433:5432"  # Host 5433 → Container 5432 (evita conflicto con postgres local)
     volumes:
       - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vocare -d vocare"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:alpine
@@ -98,7 +112,13 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
 volumes:
   db_data:
   redis_data:
+  expedientes_data:   # Volumen persistente para archivos subidos por postulantes
