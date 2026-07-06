@@ -61,18 +61,18 @@ const router = createRouter({
           meta: { roles: ['postulante'] },
         },
 
-        // ── Evaluador ─────────────────────────────────────────────
+        // ── Evaluador ───────────────────────────────────────────────
         {
           path: 'evaluaciones',
           name: 'evaluador.bandeja',
           component: () => import('@/views/evaluador/BandejaEvaluacionesView.vue'),
-          meta: { roles: ['evaluador', 'comision', 'admin_convocatoria', 'admin_sistema'] },
+          meta: { roles: ['evaluador', 'admin'] },
         },
         {
           path: 'evaluaciones/:id',
           name: 'evaluador.detalle',
           component: () => import('@/views/evaluador/EvaluacionDetalleView.vue'),
-          meta: { roles: ['evaluador', 'comision', 'admin_convocatoria', 'admin_sistema'] },
+          meta: { roles: ['evaluador', 'admin'] },
         },
 
         // ── Resultados ────────────────────────────────────────────

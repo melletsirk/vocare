@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "@vueuse/core": "^14.3.0",
+    "axios": "^1.18.1",
+    "pinia": "^3.0.4",
+    "vue-router": "^4.6.4"
+  }
+}

@@ -19,11 +19,9 @@ async function registrar() {
   try {
     // El backend asigna automáticamente el rol 'postulante'
     const { data } = await api.post('/auth/register', form)
-    // Iniciar sesión automáticamente con el token devuelto
-    auth.$patch({
-      token: data.token,
-      user:  data.user,
-    })
+    // Guardar sesión directamente
+    auth.token = data.token
+    auth.user  = data.user
     localStorage.setItem('vocare_token', data.token)
     localStorage.setItem('vocare_user', JSON.stringify(data.user))
     router.push('/dashboard')
