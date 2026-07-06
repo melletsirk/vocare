@@ -20,7 +20,7 @@ class AdminUserSeeder extends Seeder
             ]
         );
 
-        $admin->assignRole('admin_sistema');
+        $admin->syncRoles(['admin']);
 
         $this->command->info("✅ Usuario admin creado: admin@vocare.local / Admin1234!");
     }

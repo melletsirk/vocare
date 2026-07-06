@@ -10,68 +10,48 @@ class RolesAndPermissionsSeeder extends Seeder
 {
     public function run(): void
     {
-        // Limpiar caché de permisos
+        // Limpiar caché y datos anteriores
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
+        // Eliminar roles y permisos viejos para empezar limpio
+        \DB::table('role_has_permissions')->delete();
+        \DB::table('model_has_roles')->delete();
+        \DB::table('model_has_permissions')->delete();
+        Role::query()->delete();
+        Permission::query()->delete();
+
         // --- Permisos ---
-        $permissions = [
+        $permisos = [
             // Convocatorias
-            'convocatorias.ver',
-            'convocatorias.crear',
-            'convocatorias.editar',
-            'convocatorias.cerrar',
-
+            'convocatorias.ver', 'convocatorias.crear',
+            'convocatorias.editar', 'convocatorias.cerrar',
             // Plazas
-            'plazas.ver',
-            'plazas.crear',
-            'plazas.editar',
-
+            'plazas.ver', 'plazas.crear', 'plazas.editar',
             // Postulaciones
-            'postulaciones.ver_propias',
-            'postulaciones.crear',
-            'postulaciones.enviar',
-            'postulaciones.ver_todas',
-            'postulaciones.observar',
-            'postulaciones.rechazar',
-
+            'postulaciones.ver_propias', 'postulaciones.crear',
+            'postulaciones.enviar', 'postulaciones.ver_todas',
+            'postulaciones.observar', 'postulaciones.rechazar',
             // Evidencias
-            'evidencias.subir',
-            'evidencias.ver_propias',
-            'evidencias.ver_todas',
-            'evidencias.validar',
-
+            'evidencias.subir', 'evidencias.ver_propias',
+            'evidencias.ver_todas', 'evidencias.validar',
             // Evaluaciones
-            'evaluaciones.ver',
-            'evaluaciones.calificar',
-            'evaluaciones.cerrar',
-            'evaluaciones.ver_desglose',
-
+            'evaluaciones.ver', 'evaluaciones.calificar',
+            'evaluaciones.cerrar', 'evaluaciones.ver_desglose',
             // Resultados
-            'resultados.ver_total_propio',  // postulante solo ve total
-            'resultados.ver_todos',
+            'resultados.ver_total_propio', 'resultados.ver_todos',
             'resultados.publicar',
-
-            // Usuarios
-            'usuarios.ver',
-            'usuarios.crear',
-            'usuarios.editar',
-            'usuarios.desactivar',
-
-            // Auditoría
-            'auditoria.ver',
-
-            // Reportes
-            'reportes.ver',
+            // Usuarios y auditoría (solo admin)
+            'usuarios.ver', 'usuarios.crear',
+            'usuarios.editar', 'usuarios.desactivar',
+            'auditoria.ver', 'reportes.ver',
         ];
 
-        foreach ($permissions as $permission) {
-            Permission::firstOrCreate(['name' => $permission, 'guard_name' => 'web']);
+        foreach ($permisos as $p) {
+            Permission::create(['name' => $p, 'guard_name' => 'web']);
         }
 
-        // --- Roles y sus permisos ---
-
-        // 1. Postulante: solo ve sus propias cosas y puede postular/subir evidencias
-        $postulante = Role::firstOrCreate(['name' => 'postulante', 'guard_name' => 'web']);
+        // ── Rol 1: postulante ────────────────────────────────────────────────
+        $postulante = Role::create(['name' => 'postulante', 'guard_name' => 'web']);
         $postulante->syncPermissions([
             'convocatorias.ver',
             'plazas.ver',
@@ -83,8 +63,9 @@ class RolesAndPermissionsSeeder extends Seeder
             'resultados.ver_total_propio',
         ]);
 
-        // 2. Evaluador: valida evidencias y califica expedientes asignados
-        $evaluador = Role::firstOrCreate(['name' => 'evaluador', 'guard_name' => 'web']);
+        // ── Rol 2: evaluador ────────────────────────────────────────────────
+        // Valida evidencias, califica, cierra evaluaciones, ve resultados y rankings
+        $evaluador = Role::create(['name' => 'evaluador', 'guard_name' => 'web']);
         $evaluador->syncPermissions([
             'convocatorias.ver',
             'plazas.ver',
@@ -95,70 +76,24 @@ class RolesAndPermissionsSeeder extends Seeder
             'evidencias.validar',
             'evaluaciones.ver',
             'evaluaciones.calificar',
-            'evaluaciones.ver_desglose',
-            'resultados.ver_todos',
-        ]);
-
-        // 3. Comisión: decide empates, visualiza comparativos, cierra evaluaciones
-        $comision = Role::firstOrCreate(['name' => 'comision', 'guard_name' => 'web']);
-        $comision->syncPermissions([
-            'convocatorias.ver',
-            'plazas.ver',
-            'postulaciones.ver_todas',
-            'evidencias.ver_todas',
-            'evaluaciones.ver',
-            'evaluaciones.ver_desglose',
             'evaluaciones.cerrar',
-            'resultados.ver_todos',
-            'resultados.publicar',
-        ]);
-
-        // 4. Admin Convocatoria: crea/gestiona convocatorias, plazas y asigna evaluadores
-        $adminConvocatoria = Role::firstOrCreate(['name' => 'admin_convocatoria', 'guard_name' => 'web']);
-        $adminConvocatoria->syncPermissions([
-            'convocatorias.ver',
-            'convocatorias.crear',
-            'convocatorias.editar',
-            'convocatorias.cerrar',
-            'plazas.ver',
-            'plazas.crear',
-            'plazas.editar',
-            'postulaciones.ver_todas',
-            'postulaciones.observar',
-            'postulaciones.rechazar',
-            'evidencias.ver_todas',
-            'evidencias.validar',
-            'evaluaciones.ver',
             'evaluaciones.ver_desglose',
-            'evaluaciones.cerrar',
             'resultados.ver_todos',
             'resultados.publicar',
             'reportes.ver',
         ]);
 
-        // 5. Admin Sistema: acceso total, gestión de usuarios
-        $adminSistema = Role::firstOrCreate(['name' => 'admin_sistema', 'guard_name' => 'web']);
-        $adminSistema->syncPermissions(Permission::all());
+        // ── Rol 3: admin ─────────────────────────────────────────────────────
+        // Control total: usuarios, convocatorias, resultados, auditoría
+        $admin = Role::create(['name' => 'admin', 'guard_name' => 'web']);
+        $admin->syncPermissions(Permission::all());
 
-        // 6. Auditor: solo lectura en auditoría y reportes
-        $auditor = Role::firstOrCreate(['name' => 'auditor', 'guard_name' => 'web']);
-        $auditor->syncPermissions([
-            'convocatorias.ver',
-            'plazas.ver',
-            'postulaciones.ver_todas',
-            'evaluaciones.ver',
-            'evaluaciones.ver_desglose',
-            'resultados.ver_todos',
-            'auditoria.ver',
-            'reportes.ver',
-        ]);
-
-        $this->command->info('✅ Roles y permisos creados correctamente.');
+        $this->command->info('✅ Roles creados: postulante | evaluador | admin');
         $this->command->table(
-            ['Rol', 'Permisos'],
+            ['Rol', 'N° Permisos'],
             Role::with('permissions')->get()->map(fn($r) => [
                 $r->name,
-                $r->permissions->pluck('name')->join(', ')
+                $r->permissions->count(),
             ])
         );
     }

@@ -18,8 +18,8 @@ class AppServiceProvider extends ServiceProvider
         // Registrar todos los permisos de Spatie como Gates de Laravel
         // Esto permite usar $this->authorize('permiso.nombre') en los controllers
         Gate::before(function ($user, $ability) {
-            if ($user->hasRole('admin_sistema')) {
-                return true; // admin_sistema pasa todo sin revisar
+            if ($user->hasRole('admin')) {
+                return true; // admin pasa todo sin revisar
             }
         });
 

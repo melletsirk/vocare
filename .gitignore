@@ -1,8 +1,20 @@
 *.md
 !README.md
 
-# Ignore Docker volumes if they get created locally instead of named volumes (though they shouldn't)
-# Ignore local environment files if any
+# Node
+node_modules/
+package-lock.json
+npm-debug.log*
+
+# Local env files
 .env
 .env.*
 !.env.example
+
+# Build output
+dist/
+.vite/
+
+# OS
+.DS_Store
+Thumbs.db
