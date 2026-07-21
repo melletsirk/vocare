@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\Evaluacion;
-use App\Models\Evidencia;
+use App\Models\PostulacionEvidencia;
 use App\Models\Puntaje;
 use App\Models\Variable;
 use Illuminate\Support\Collection;
@@ -29,7 +29,7 @@ class CalculadorService
      */
     public function calcular(Evaluacion $evaluacion): float
     {
-        $postulacion = $evaluacion->postulacion->load('convocatoria', 'expediente.evidencias');
+        $postulacion = $evaluacion->postulacion->load('convocatoria', 'postulacionEvidencias.evidencia');
         $snapshot    = $postulacion->convocatoria->tabla_snapshot;
 
         if (!$snapshot) {
@@ -212,14 +212,23 @@ class CalculadorService
     // -------------------------------------------------------------------------
 
     /**
-     * Obtiene las evidencias aprobadas de una variable para una evaluación.
+     * Obtiene las evidencias aprobadas y vigentes de una variable para una evaluación.
+     *
+     * Una evidencia cuenta para el cálculo solo si, en el contexto de ESTA
+     * postulación (postulacion_evidencia), fue aprobada por el evaluador Y
+     * sigue vigente (fecha_emision + periodo_validez_anios >= fecha de la
+     * convocatoria). El estado global de la evidencia (Evidencia::estado) no
+     * es suficiente: una evidencia aprobada en otra postulación, o vencida
+     * para esta convocatoria, no debe sumar puntaje aquí.
      */
     private function evidenciasAprobadasDeVariable(Evaluacion $evaluacion, int $variableId): Collection
     {
         return $evaluacion->postulacion
-            ->expediente
-            ->evidencias
-            ->where('variable_id', $variableId)
-            ->where('estado', Evidencia::ESTADO_APROBADA);
+            ->postulacionEvidencias
+            ->filter(fn (PostulacionEvidencia $pe) => $pe->estado_en_postulacion === PostulacionEvidencia::ESTADO_APROBADA)
+            ->filter(fn (PostulacionEvidencia $pe) => $pe->vigente === true)
+            ->map(fn (PostulacionEvidencia $pe) => $pe->evidencia)
+            ->filter(fn ($evidencia) => $evidencia && $evidencia->variable_id === $variableId)
+            ->values();
     }
 }
