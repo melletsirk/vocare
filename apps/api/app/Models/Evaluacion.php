@@ -12,6 +12,8 @@ class Evaluacion extends Model
     const ESTADO_COMPLETADA  = 'completada';
     const ESTADO_CERRADA     = 'cerrada';
 
+    protected $table = 'evaluaciones';
+
     protected $fillable = [
         'postulacion_id',
         'evaluador_id',

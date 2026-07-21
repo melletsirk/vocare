@@ -4,12 +4,15 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Postulacion extends Model
 {
     use SoftDeletes;
+
+    protected $table = 'postulaciones';
 
     const ESTADO_EN_PROCESO    = 'en_proceso';
     const ESTADO_OBSERVADA     = 'observada';
@@ -64,6 +67,15 @@ class Postulacion extends Model
     public function evaluacion(): HasOne
     {
         return $this->hasOne(Evaluacion::class);
+    }
+
+    /**
+     * Evidencias asociadas a esta postulación con su estado y vigencia
+     * calculados en el contexto de esta postulación.
+     */
+    public function postulacionEvidencias(): HasMany
+    {
+        return $this->hasMany(PostulacionEvidencia::class);
     }
 
     /** ¿Ya fue enviada formalmente? */

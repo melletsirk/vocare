@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Indicador extends Model
 {
+    protected $table = 'indicadores';
     protected $fillable = [
         'variable_id',
         'nombre',
