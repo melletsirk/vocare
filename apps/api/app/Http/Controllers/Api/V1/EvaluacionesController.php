@@ -222,42 +222,6 @@ class EvaluacionesController extends Controller
     {
         $this->authorize('evaluaciones.ver_desglose');
 
-        $snapshot = $evaluacion->postulacion->convocatoria->tabla_snapshot;
-        $puntajesMap = $evaluacion->puntajes->keyBy('variable_id');
-
-        $desglose = collect($snapshot['rubros'])->map(function ($rubro) use ($puntajesMap) {
-            $puntajeRubroAcumulado = 0.0;
-            $variables = collect($rubro['variables'])->map(function ($varData) use ($puntajesMap, &$puntajeRubroAcumulado) {
-                $puntaje = $puntajesMap->get($varData['id']);
-                $puntajeVar = $puntaje ? (float) $puntaje->puntaje_variable : 0.0;
-                $puntajeRubroAcumulado += $puntajeVar;
-
-                return [
-                    'variable_id'   => $varData['id'],
-                    'nombre'        => $varData['nombre'],
-                    'tipo_calculo'  => $varData['tipo_calculo'],
-                    'puntaje_max'   => $varData['puntaje_max'],
-                    'puntaje_bruto' => $puntaje?->puntaje_bruto ?? 0,
-                    'puntaje_aplicado' => $puntajeVar,
-                ];
-            });
-
-            $puntajeRubroFinal = min($puntajeRubroAcumulado, (float) $rubro['puntaje_max_subrubro']);
-
-            return [
-                'nombre'             => $rubro['nombre'],
-                'puntaje_max'        => $rubro['puntaje_max_subrubro'],
-                'puntaje_acumulado'  => round($puntajeRubroAcumulado, 2),
-                'puntaje_final'      => round($puntajeRubroFinal, 2),
-                'tope_aplicado'      => $puntajeRubroAcumulado > $rubro['puntaje_max_subrubro'],
-                'variables'          => $variables,
-            ];
-        });
-
-        return response()->json([
-            'puntaje_total' => $evaluacion->puntaje_total,
-            'tabla_nombre'  => $snapshot['nombre'],
-            'rubros'        => $desglose,
-        ]);
+        return response()->json($this->calculador->desglosar($evaluacion));
     }
 }
