@@ -36,6 +36,8 @@ Route::prefix('v1')->group(function () {
         // Auth
         Route::post('auth/logout', [AuthController::class, 'logout'])->name('auth.logout');
         Route::get('me', [AuthController::class, 'me'])->name('auth.me');
+        // Evidencias propias disponibles para reutilizar (excluye rechazadas)
+        Route::get('me/evidencias', [EvidenciasController::class, 'misEvidencias'])->name('me.evidencias');
 
         // -------------------------------------------------------------------------
         // Usuarios y Roles (Sprint 4)
@@ -103,6 +105,8 @@ Route::prefix('v1')->group(function () {
             // Evidencias
             Route::get('{postulacion}/evidencias', [EvidenciasController::class, 'index'])->name('evidencias.index');
             Route::post('{postulacion}/evidencias', [EvidenciasController::class, 'store'])->name('evidencias.store');
+            // Reutilizar evidencia existente en una nueva postulación (sin re-validación del archivo)
+            Route::post('{postulacion}/evidencias/reutilizar', [EvidenciasController::class, 'reutilizar'])->name('evidencias.reutilizar');
 
             // Evaluación
             Route::post('{postulacion}/evaluacion', [EvaluacionesController::class, 'crear'])->name('evaluaciones.crear');
@@ -123,6 +127,7 @@ Route::prefix('v1')->group(function () {
         // Evaluaciones
         // -------------------------------------------------------------------------
         Route::prefix('evaluaciones')->group(function () {
+            Route::get('/', [EvaluacionesController::class, 'index'])->name('evaluaciones.index');
             Route::get('{evaluacion}', [EvaluacionesController::class, 'show'])->name('evaluaciones.show');
             Route::get('{evaluacion}/desglose', [EvaluacionesController::class, 'desglose'])->name('evaluaciones.desglose');
             Route::post('{evaluacion}/puntajes', [EvaluacionesController::class, 'guardarPuntaje'])->name('evaluaciones.puntajes');

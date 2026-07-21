@@ -103,7 +103,7 @@ class PostulacionesController extends Controller
         }
 
         return response()->json(
-            $postulacion->load(['convocatoria', 'plaza', 'cvSnapshot', 'expediente.evidencias.variable'])
+            $postulacion->load(['convocatoria', 'plaza', 'cvSnapshot', 'expediente', 'postulacionEvidencias.evidencia.variable'])
         );
     }
 
