@@ -55,6 +55,12 @@ const router = createRouter({
           meta: { roles: ['postulante'] },
         },
         {
+          path: 'mis-postulaciones/:id',
+          name: 'postulante.postulacion',
+          component: () => import('@/views/postulante/PostulacionDetalleView.vue'),
+          meta: { roles: ['postulante'] },
+        },
+        {
           path: 'mis-postulaciones/:id/expediente',
           name: 'postulante.expediente',
           component: () => import('@/views/postulante/ExpedienteView.vue'),
