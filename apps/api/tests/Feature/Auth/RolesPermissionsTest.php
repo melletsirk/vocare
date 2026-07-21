@@ -52,41 +52,27 @@ class RolesPermissionsTest extends TestCase
         $this->assertFalse($user->hasPermissionTo('usuarios.crear'));
     }
 
-    public function test_admin_sistema_has_all_permissions(): void
+    /**
+     * Decisión MVP (Sprint 2, ver RolesAndPermissionsSeeder): comisión,
+     * admin_convocatoria, admin_sistema y auditor se unifican en el rol
+     * `admin`, que por eso concentra TODOS los permisos — incluidos los que
+     * en el reglamento corresponden a roles distintos (cerrar evaluación,
+     * publicar resultados, auditoría, crear usuarios). No existe en el MVP
+     * un rol de solo-lectura ni uno que pueda cerrar evaluaciones sin poder
+     * crear convocatorias.
+     */
+    public function test_admin_unifica_todos_los_permisos_del_reglamento(): void
     {
         $user = User::factory()->create(['is_active' => true]);
-        $user->assignRole('admin_sistema');
+        $user->assignRole('admin');
 
         $this->assertTrue($user->hasPermissionTo('usuarios.crear'));
         $this->assertTrue($user->hasPermissionTo('convocatorias.crear'));
         $this->assertTrue($user->hasPermissionTo('evaluaciones.calificar'));
-        $this->assertTrue($user->hasPermissionTo('auditoria.ver'));
-        $this->assertTrue($user->hasPermissionTo('reportes.ver'));
-    }
-
-    public function test_comision_can_close_evaluacion_but_not_create_convocatoria(): void
-    {
-        $user = User::factory()->create(['is_active' => true]);
-        $user->assignRole('comision');
-
         $this->assertTrue($user->hasPermissionTo('evaluaciones.cerrar'));
         $this->assertTrue($user->hasPermissionTo('resultados.publicar'));
-        $this->assertFalse($user->hasPermissionTo('convocatorias.crear'));
-        $this->assertFalse($user->hasPermissionTo('usuarios.crear'));
-    }
-
-    public function test_auditor_has_readonly_access(): void
-    {
-        $user = User::factory()->create(['is_active' => true]);
-        $user->assignRole('auditor');
-
         $this->assertTrue($user->hasPermissionTo('auditoria.ver'));
         $this->assertTrue($user->hasPermissionTo('reportes.ver'));
-
-        // No puede modificar nada
-        $this->assertFalse($user->hasPermissionTo('convocatorias.crear'));
-        $this->assertFalse($user->hasPermissionTo('evaluaciones.calificar'));
-        $this->assertFalse($user->hasPermissionTo('usuarios.crear'));
     }
 
     public function test_postulante_only_sees_their_own_total_score_permission(): void
@@ -102,13 +88,11 @@ class RolesPermissionsTest extends TestCase
         $this->assertFalse($user->hasPermissionTo('resultados.ver_todos'));
     }
 
-    public function test_six_roles_exist_in_database(): void
+    public function test_tres_roles_mvp_existen_en_la_base_de_datos(): void
     {
         $this->assertDatabaseHas('roles', ['name' => 'postulante']);
         $this->assertDatabaseHas('roles', ['name' => 'evaluador']);
-        $this->assertDatabaseHas('roles', ['name' => 'comision']);
-        $this->assertDatabaseHas('roles', ['name' => 'admin_convocatoria']);
-        $this->assertDatabaseHas('roles', ['name' => 'admin_sistema']);
-        $this->assertDatabaseHas('roles', ['name' => 'auditor']);
+        $this->assertDatabaseHas('roles', ['name' => 'admin']);
+        $this->assertDatabaseCount('roles', 3);
     }
 }

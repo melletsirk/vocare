@@ -94,7 +94,7 @@ class AuthController extends Controller
 
         AuditService::log('logout', $user);
 
-        $request->user()->currentAccessToken()->delete();
+        $request->user()->currentAccessToken()?->delete();
 
         return response()->json(['message' => 'Sesión cerrada correctamente.']);
     }

@@ -19,6 +19,10 @@
     </source>
     <php>
         <env name="APP_ENV" value="testing"/>
+        <!-- Fija y aislada de apps/api/.env (que además ya no está vacío,
+             corregido por separado) — evita que los tests dependan del
+             estado local del .env de cada desarrollador. -->
+        <env name="APP_KEY" value="base64:n1c3g/oFtYjOAD8ocRfG8/2NadWw7l6kQwnXgAuFcr8="/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
