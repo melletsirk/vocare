@@ -9,7 +9,7 @@ const error   = ref('')
 const tablas  = ref<any[]>([])
 
 const form = reactive({
-  codigo: '', nombre: '', tipo_proceso: '', descripcion: '',
+  codigo: '', nombre: '', tipo_proceso: '', modalidad: null as string | null, descripcion: '',
   tabla_evaluacion_id: '', fecha_inicio: '', fecha_fin: '',
 })
 
@@ -17,6 +17,15 @@ onMounted(async () => {
   const { data } = await api.get('/tablas-evaluacion')
   tablas.value = data
 })
+
+// tipo_proceso/modalidad son propiedades de la tabla elegida, no datos
+// independientes — se derivan automáticamente para que nunca puedan quedar
+// inconsistentes con el Anexo seleccionado (el backend valida esto).
+function onTablaChange() {
+  const tabla = tablas.value.find((t) => t.id === form.tabla_evaluacion_id)
+  form.tipo_proceso = tabla?.tipo_proceso ?? ''
+  form.modalidad = tabla?.modalidad ?? null
+}
 
 async function guardar() {
   error.value  = ''
@@ -45,20 +54,9 @@ async function guardar() {
     <div class="card">
       <div v-if="error" class="alert alert-error mb-4">{{ error }}</div>
 
-      <div class="grid-2 mb-4">
-        <div class="form-group">
-          <label class="form-label">Código <span class="required">*</span></label>
-          <input v-model="form.codigo" class="form-control" placeholder="CONV-2025-001" />
-        </div>
-        <div class="form-group">
-          <label class="form-label">Tipo de proceso <span class="required">*</span></label>
-          <select v-model="form.tipo_proceso" class="form-control">
-            <option value="">Seleccionar...</option>
-            <option value="Ordinario">Ordinario</option>
-            <option value="Extraordinario">Extraordinario</option>
-            <option value="Contratacion">Contratación</option>
-          </select>
-        </div>
+      <div class="form-group mb-4">
+        <label class="form-label">Código <span class="required">*</span></label>
+        <input v-model="form.codigo" class="form-control" placeholder="CONV-2025-001" />
       </div>
 
       <div class="form-group mb-4">
@@ -73,12 +71,19 @@ async function guardar() {
 
       <div class="form-group mb-4">
         <label class="form-label">Tabla de evaluación (Anexo) <span class="required">*</span></label>
-        <select v-model="form.tabla_evaluacion_id" class="form-control">
+        <select v-model="form.tabla_evaluacion_id" class="form-control" @change="onTablaChange">
           <option value="">Seleccionar anexo...</option>
           <option v-for="t in tablas" :key="t.id" :value="t.id">
-            {{ t.codigo_anexo }} — {{ t.nombre }} ({{ t.tipo_proceso }})
+            {{ t.codigo_anexo }} — {{ t.nombre }} ({{ t.tipo_proceso }}{{ t.modalidad ? ' · ' + t.modalidad : '' }})
           </option>
         </select>
+        <!-- tipo_proceso/modalidad se derivan del Anexo elegido (no son
+             campos independientes) para que nunca puedan quedar
+             inconsistentes con la tabla seleccionada. -->
+        <p v-if="form.tabla_evaluacion_id" class="form-hint">
+          Tipo de proceso: <strong>{{ form.tipo_proceso }}</strong>
+          <span v-if="form.modalidad"> · Modalidad: <strong>{{ form.modalidad }}</strong></span>
+        </p>
       </div>
 
       <div class="grid-2 mb-6">
