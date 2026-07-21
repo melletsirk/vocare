@@ -23,7 +23,7 @@ class AsignacionesController extends Controller
         $this->authorize('asignaciones.ver');
 
         $user  = $request->user();
-        $query = AsignacionEvaluador::with(['postulacion.plaza', 'postulacion.postulante', 'convocatoria', 'evaluador']);
+        $query = AsignacionEvaluador::with(['postulacion.plaza', 'postulacion.postulante', 'postulacion.evaluacion', 'convocatoria', 'evaluador']);
 
         if ($user->hasRole('evaluador')) {
             $query->where('evaluador_id', $user->id);

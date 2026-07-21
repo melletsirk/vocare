@@ -21,7 +21,7 @@ class PostulacionesController extends Controller
     {
         $user = $request->user();
 
-        $query = Postulacion::with(['convocatoria', 'plaza', 'expediente']);
+        $query = Postulacion::with(['convocatoria', 'plaza', 'expediente', 'postulante']);
 
         if ($user->hasRole('postulante')) {
             $query->where('user_id', $user->id);

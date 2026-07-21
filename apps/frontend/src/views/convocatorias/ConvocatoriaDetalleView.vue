@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
@@ -12,11 +12,19 @@ const id     = route.params.id
 const conv    = ref<any>(null)
 const plazas  = ref<any[]>([])
 const loading = ref(true)
-const tab     = ref<'plazas'|'tabla'|'resultados'>('plazas')
+const tab     = ref<'plazas'|'tabla'|'asignaciones'>('plazas')
 const showPlazaModal = ref(false)
 const savingPlaza    = ref(false)
 const publicando     = ref(false)
 const plazaForm = ref({ facultad:'', departamento:'', asignatura:'', modalidad:'', horas_semana:'' })
+
+// Asignación de evaluadores
+const postulaciones = ref<any[]>([])
+const asignaciones  = ref<any[]>([])
+const evaluadores   = ref<any[]>([])
+const evaluadorElegido = reactive<Record<number, string>>({}) // postulacion_id -> evaluador_id
+const asignando = reactive<Record<number, boolean>>({})
+const quitando   = reactive<Record<number, boolean>>({})
 
 const estadoBadge: Record<string, string> = {
   borrador:'badge-gray', publicada:'badge-blue',
@@ -42,8 +50,57 @@ async function cargar() {
     ])
     conv.value   = cRes.data
     plazas.value = pRes.data
+
+    if (canManage) await cargarAsignaciones()
   } finally {
     loading.value = false
+  }
+}
+
+async function cargarAsignaciones() {
+  const [postRes, asigRes, evalRes] = await Promise.all([
+    api.get('/postulaciones', { params: { convocatoria_id: id } }),
+    api.get('/asignaciones', { params: { convocatoria_id: id } }),
+    api.get('/users', { params: { rol: 'evaluador' } }),
+  ])
+  postulaciones.value = (postRes.data.data ?? postRes.data).filter((p: any) => p.fecha_envio)
+  asignaciones.value  = asigRes.data.data ?? asigRes.data
+  evaluadores.value   = evalRes.data.data ?? evalRes.data
+}
+
+function asignacionesDe(postulacionId: number) {
+  return asignaciones.value.filter((a) => a.postulacion_id === postulacionId)
+}
+
+async function asignarEvaluador(postulacionId: number) {
+  const evaluadorId = evaluadorElegido[postulacionId]
+  if (!evaluadorId) return
+
+  asignando[postulacionId] = true
+  try {
+    await api.post(`/convocatorias/${id}/asignaciones`, {
+      postulacion_id: postulacionId,
+      evaluador_id: evaluadorId,
+    })
+    evaluadorElegido[postulacionId] = ''
+    await cargarAsignaciones()
+  } catch (e: any) {
+    alert(e.response?.data?.message || 'No se pudo asignar el evaluador')
+  } finally {
+    asignando[postulacionId] = false
+  }
+}
+
+async function quitarAsignacion(asignacionId: number) {
+  if (!confirm('¿Quitar esta asignación?')) return
+  quitando[asignacionId] = true
+  try {
+    await api.delete(`/asignaciones/${asignacionId}`)
+    await cargarAsignaciones()
+  } catch (e: any) {
+    alert(e.response?.data?.message || 'No se pudo quitar la asignación')
+  } finally {
+    quitando[asignacionId] = false
   }
 }
 
@@ -137,7 +194,7 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
     <!-- Tabs -->
     <div class="flex gap-1 mb-4" style="border-bottom:1px solid var(--surface-border)">
       <button
-        v-for="t in [['plazas','Plazas'],['tabla','Tabla Evaluación']]"
+        v-for="t in (canManage ? [['plazas','Plazas'],['tabla','Tabla Evaluación'],['asignaciones','Asignaciones']] : [['plazas','Plazas'],['tabla','Tabla Evaluación']])"
         :key="t[0]"
         class="btn btn-ghost"
         :style="tab === t[0] ? 'border-bottom:2px solid var(--clr-primary-600);border-radius:0;color:var(--clr-primary-700);font-weight:600' : ''"
@@ -224,6 +281,64 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
         <div class="empty-state">
           <h3>Sin tabla de evaluación</h3>
           <p>Publica la convocatoria para generar el snapshot inmutable.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Asignación de evaluadores -->
+    <div v-else-if="tab === 'asignaciones'">
+      <div v-if="postulaciones.length === 0" class="card">
+        <div class="empty-state">
+          <h3>Sin postulaciones enviadas</h3>
+          <p>Solo se pueden asignar evaluadores a postulaciones ya enviadas formalmente.</p>
+        </div>
+      </div>
+
+      <div v-else class="card" style="padding:0">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Postulante</th>
+                <th>Plaza</th>
+                <th>Evaluadores asignados</th>
+                <th>Asignar</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="p in postulaciones" :key="p.id">
+                <td class="font-medium">{{ p.postulante?.name ?? p.user_id }}</td>
+                <td class="text-sm">{{ p.plaza?.asignatura ?? '—' }}</td>
+                <td>
+                  <div v-if="asignacionesDe(p.id).length === 0" class="text-muted text-sm">Sin asignar</div>
+                  <div v-for="a in asignacionesDe(p.id)" :key="a.id" class="flex items-center gap-2 mb-1">
+                    <span class="badge badge-blue">{{ a.evaluador?.name ?? a.evaluador_id }}</span>
+                    <button
+                      class="btn btn-ghost btn-sm"
+                      :disabled="quitando[a.id]"
+                      @click="quitarAsignacion(a.id)"
+                    >✕</button>
+                  </div>
+                </td>
+                <td>
+                  <div class="flex gap-2">
+                    <select v-model="evaluadorElegido[p.id]" class="form-control" style="min-width:180px">
+                      <option value="">Elegir evaluador...</option>
+                      <option v-for="e in evaluadores" :key="e.id" :value="e.id">{{ e.name }}</option>
+                    </select>
+                    <button
+                      class="btn btn-primary btn-sm"
+                      :disabled="!evaluadorElegido[p.id] || asignando[p.id]"
+                      @click="asignarEvaluador(p.id)"
+                    >
+                      <span v-if="asignando[p.id]" class="spinner"></span>
+                      Asignar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

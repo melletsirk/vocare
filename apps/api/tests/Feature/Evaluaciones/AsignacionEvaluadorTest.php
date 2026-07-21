@@ -203,6 +203,36 @@ class AsignacionEvaluadorTest extends TestCase
         $this->assertEquals($evaluador->id, $data[0]['evaluador_id']);
     }
 
+    public function test_asignacion_incluye_evaluacion_de_la_postulacion_null_hasta_que_se_inicia(): void
+    {
+        ['postulacion' => $postulacion, 'evaluador' => $evaluador, 'convocatoria' => $convocatoria] = $this->crearPostulacion();
+
+        AsignacionEvaluador::create([
+            'convocatoria_id' => $convocatoria->id,
+            'postulacion_id'  => $postulacion->id,
+            'evaluador_id'    => $evaluador->id,
+        ]);
+
+        // Antes de iniciar: la bandeja del evaluador debe poder distinguir
+        // "asignada, sin evaluación creada" de una ya iniciada.
+        $antes = $this->actingAs($evaluador, 'sanctum')
+            ->getJson('/api/v1/asignaciones')
+            ->assertOk()
+            ->json('data');
+        $this->assertNull($antes[0]['postulacion']['evaluacion']);
+
+        $this->actingAs($evaluador, 'sanctum')
+            ->postJson("/api/v1/postulaciones/{$postulacion->id}/evaluacion")
+            ->assertStatus(201);
+
+        $despues = $this->actingAs($evaluador, 'sanctum')
+            ->getJson('/api/v1/asignaciones')
+            ->assertOk()
+            ->json('data');
+        $this->assertNotNull($despues[0]['postulacion']['evaluacion']);
+        $this->assertEquals($evaluador->id, $despues[0]['postulacion']['evaluacion']['evaluador_id']);
+    }
+
     public function test_admin_puede_eliminar_una_asignacion(): void
     {
         ['postulacion' => $postulacion, 'evaluador' => $evaluador, 'convocatoria' => $convocatoria, 'admin' => $admin] = $this->crearPostulacion();
