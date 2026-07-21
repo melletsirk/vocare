@@ -120,10 +120,23 @@ class EvaluacionesController extends Controller
     /**
      * POST /api/v1/evaluaciones/{evaluacion}/puntajes
      * Guarda un puntaje manual (TABLA_EQUIVALENCIA u otro tipo que requiera entrada manual).
+     *
+     * Solo el evaluador propietario de la evaluación (o admin) puede guardar
+     * puntajes en ella — antes cualquier usuario con evaluaciones.calificar
+     * podía modificar el puntaje de una evaluación ajena.
      */
     public function guardarPuntaje(Request $request, Evaluacion $evaluacion): JsonResponse
     {
         $this->authorize('evaluaciones.calificar');
+
+        $user = $request->user();
+
+        if ($user->hasRole('evaluador') && $evaluacion->evaluador_id !== $user->id) {
+            return response()->json([
+                'message' => 'No puedes guardar puntajes en una evaluación que no te fue asignada.',
+                'code'    => 'EVALUADOR_NO_ASIGNADO',
+            ], 403);
+        }
 
         $data = $request->validate([
             'variable_id'    => ['required', 'exists:variables,id'],
