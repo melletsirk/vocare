@@ -61,9 +61,19 @@ class Convocatoria extends Model
         return $this->hasMany(Plaza::class);
     }
 
+    public function postulaciones(): HasMany
+    {
+        return $this->hasMany(Postulacion::class);
+    }
+
     public function etapas(): HasMany
     {
         return $this->hasMany(Etapa::class)->orderBy('orden');
+    }
+
+    public function asignaciones(): HasMany
+    {
+        return $this->hasMany(AsignacionEvaluador::class);
     }
 
     public function scopePublicadas($query)

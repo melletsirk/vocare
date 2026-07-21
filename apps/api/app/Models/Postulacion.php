@@ -69,6 +69,11 @@ class Postulacion extends Model
         return $this->hasOne(Evaluacion::class);
     }
 
+    public function asignaciones(): HasMany
+    {
+        return $this->hasMany(AsignacionEvaluador::class);
+    }
+
     /**
      * Evidencias asociadas a esta postulación con su estado y vigencia
      * calculados en el contexto de esta postulación.

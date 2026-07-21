@@ -37,6 +37,8 @@ class RolesAndPermissionsSeeder extends Seeder
             // Evaluaciones
             'evaluaciones.ver', 'evaluaciones.calificar',
             'evaluaciones.cerrar', 'evaluaciones.ver_desglose',
+            // Asignación de evaluadores
+            'asignaciones.gestionar', 'asignaciones.ver',
             // Resultados
             'resultados.ver_total_propio', 'resultados.ver_todos',
             'resultados.publicar',
@@ -78,6 +80,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'evaluaciones.calificar',
             'evaluaciones.cerrar',
             'evaluaciones.ver_desglose',
+            'asignaciones.ver',
             'resultados.ver_todos',
             'resultados.publicar',
             'reportes.ver',

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AsignacionesController;
 use App\Http\Controllers\Api\V1\AuditoriaController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ConvocatoriasController;
@@ -76,11 +77,15 @@ Route::prefix('v1')->group(function () {
             Route::get('{convocatoria}/plazas', [PlazasController::class, 'index'])->name('plazas.index');
             Route::post('{convocatoria}/plazas', [PlazasController::class, 'store'])->name('plazas.store');
 
+            // Asignación de evaluadores a postulaciones de esta convocatoria
+            Route::post('{convocatoria}/asignaciones', [AsignacionesController::class, 'store'])->name('asignaciones.store');
+
             // Resultados (Sprint 6)
             Route::get('{convocatoria}/resultados', [ResultadosController::class, 'index'])->name('resultados.index');
             Route::post('{convocatoria}/resultados/publicar', [ResultadosController::class, 'publicar'])->name('resultados.publicar');
             Route::post('{convocatoria}/plazas/{plaza}/ranking', [ResultadosController::class, 'generarRanking'])->name('resultados.ranking');
             Route::post('{convocatoria}/plazas/{plaza}/desierta', [ResultadosController::class, 'declararDesierta'])->name('resultados.desierta');
+            Route::post('{convocatoria}/plazas/{plaza}/resultados/desempatar', [ResultadosController::class, 'resolverEmpate'])->name('resultados.desempatar');
 
             // Reporte consolidado
             Route::get('{convocatoria}/reporte', [AuditoriaController::class, 'reporteConvocatoria'])->name('reportes.convocatoria');
@@ -121,6 +126,14 @@ Route::prefix('v1')->group(function () {
         Route::prefix('evidencias')->group(function () {
             Route::get('{evidencia}/archivo', [EvidenciasController::class, 'descargar'])->name('evidencias.descargar');
             Route::patch('{evidencia}/validacion', [EvidenciasController::class, 'validar'])->name('evidencias.validar');
+        });
+
+        // -------------------------------------------------------------------------
+        // Asignaciones de evaluador (Sprint 5)
+        // -------------------------------------------------------------------------
+        Route::prefix('asignaciones')->group(function () {
+            Route::get('/', [AsignacionesController::class, 'index'])->name('asignaciones.index');
+            Route::delete('{asignacion}', [AsignacionesController::class, 'destroy'])->name('asignaciones.destroy');
         });
 
         // -------------------------------------------------------------------------

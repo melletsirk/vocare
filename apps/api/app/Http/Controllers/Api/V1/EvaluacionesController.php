@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Models\AsignacionEvaluador;
 use App\Models\Evaluacion;
 use App\Models\Puntaje;
 use App\Models\Postulacion;
@@ -53,7 +54,11 @@ class EvaluacionesController extends Controller
 
     /**
      * POST /api/v1/postulaciones/{postulacion}/evaluacion
-     * Crea una evaluación y la asigna al evaluador autenticado.
+     * Crea la evaluación para el evaluador autenticado.
+     *
+     * Requiere que un admin/comisión haya asignado previamente a este
+     * evaluador a la postulación (AsignacionEvaluador) — un evaluador ya no
+     * puede auto-asignarse un expediente arbitrario.
      */
     public function crear(Request $request, Postulacion $postulacion): JsonResponse
     {
@@ -66,9 +71,24 @@ class EvaluacionesController extends Controller
             ], 422);
         }
 
+        $user = $request->user();
+
+        if ($user->hasRole('evaluador')) {
+            $asignado = AsignacionEvaluador::where('postulacion_id', $postulacion->id)
+                ->where('evaluador_id', $user->id)
+                ->exists();
+
+            if (!$asignado) {
+                return response()->json([
+                    'message' => 'No tienes una asignación para evaluar esta postulación.',
+                    'code'    => 'EVALUADOR_NO_ASIGNADO',
+                ], 403);
+            }
+        }
+
         $evaluacion = Evaluacion::create([
             'postulacion_id' => $postulacion->id,
-            'evaluador_id'   => $request->user()->id,
+            'evaluador_id'   => $user->id,
             'estado'         => Evaluacion::ESTADO_EN_PROCESO,
         ]);
 
