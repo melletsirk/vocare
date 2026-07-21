@@ -53,6 +53,46 @@ class ResultadosController extends Controller
     }
 
     /**
+     * POST /api/v1/convocatorias/{convocatoria}/plazas/{plaza}/resultados/desempatar
+     * La comisión registra el orden decidido manualmente para un grupo de
+     * postulaciones empatadas. Ver ResultadosService::resolverEmpate().
+     */
+    public function resolverEmpate(Request $request, Convocatoria $convocatoria, Plaza $plaza): JsonResponse
+    {
+        $this->authorize('resultados.publicar');
+
+        $data = $request->validate([
+            'posicion_inicio' => ['required', 'integer', 'min:1'],
+            'orden'           => ['required', 'array', 'min:2'],
+            'orden.*'         => ['required', 'integer', 'exists:postulaciones,id'],
+        ]);
+
+        try {
+            $resultados = $this->service->resolverEmpate(
+                $convocatoria,
+                $plaza,
+                $data['posicion_inicio'],
+                $data['orden'],
+                $request->user()->id
+            );
+        } catch (\RuntimeException|\InvalidArgumentException $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'code'    => 'EMPATE_INVALIDO',
+            ], 422);
+        }
+
+        AuditService::log('resultados.empate_resuelto', $plaza, [], [
+            'plaza_id'        => $plaza->id,
+            'posicion_inicio' => $data['posicion_inicio'],
+            'orden_decidido'  => $data['orden'],
+            'decidido_por'    => $request->user()->id,
+        ]);
+
+        return response()->json($resultados->load('postulacion.postulante'));
+    }
+
+    /**
      * GET /api/v1/postulaciones/{postulacion}/resultado
      * El postulante consulta su propio resultado (solo puntaje total y posición).
      * No ve el desglose de otros postulantes.
@@ -103,6 +143,17 @@ class ResultadosController extends Controller
             return response()->json([
                 'message' => 'Existen plazas sin ranking generado. Genera el ranking de todas las plazas primero.',
                 'code'    => 'PLAZAS_SIN_RANKING',
+            ], 422);
+        }
+
+        $empatesPendientes = Resultado::where('convocatoria_id', $convocatoria->id)
+            ->where('estado', Resultado::ESTADO_EMPATE_PENDIENTE)
+            ->exists();
+
+        if ($empatesPendientes) {
+            return response()->json([
+                'message' => 'Existen empates sin resolver. La comisión debe decidir el orden antes de publicar.',
+                'code'    => 'EMPATES_PENDIENTES',
             ], 422);
         }
 

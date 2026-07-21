@@ -12,20 +12,41 @@ use Illuminate\Support\Collection;
 /**
  * ResultadosService — Genera el ranking y publica resultados.
  *
- * Reglas del reglamento:
+ * Reglas del reglamento (requisitos-sistema.md §5 y §10):
  *  1. Ordenar por puntaje_total DESC.
- *  2. Primer lugar = ganador, siguientes = reserva (hasta 3), resto = no_ganador.
- *  3. Empate: si dos postulantes tienen el mismo puntaje, se resuelve por sorteo
- *     (simulado con random — en producción debe realizarse en acto público).
- *  4. Si no hay postulantes o el ganador no alcanza puntaje mínimo → plaza desierta.
+ *  2. Primer lugar = ganador, siguientes = reserva (hasta MAX_RESERVAS), resto = no_ganador.
+ *  3. Empate exacto en una posición que define ganador/reserva → NO se resuelve
+ *     automáticamente. Queda en estado `empate_pendiente` hasta que la comisión
+ *     registra manualmente el orden decidido (ver resolverEmpate()), con
+ *     trazabilidad de quién decidió y cuándo. No existe sorteo ni
+ *     aleatoriedad real en ningún punto de este flujo — el orden entre
+ *     empatados, mientras no se resuelva, es simplemente el de inserción en
+ *     BD y NO debe usarse como decisión de negocio.
+ *  4. Si no hay postulantes o el mejor puntaje no alcanza el mínimo → plaza desierta.
+ *
+ * El orden de reserva importa operativamente: si el ganador declina o el
+ * primer reserva ya no está disponible, la comisión contacta al siguiente en
+ * el orden — por eso un empate en cualquier posición contactable
+ * (1..1+MAX_RESERVAS) requiere decisión humana explícita, no solo el empate
+ * en la posición de ganador.
  */
 class ResultadosService
 {
-    const PUNTAJE_MINIMO_APROBATORIO = 50.0; // Umbral mínimo para no declarar desierta
+    // Puntaje mínimo para no declarar plaza desierta y N° máximo de reservas:
+    // confirmados verbalmente por el cliente (Vicerrectorado Académico),
+    // 2026-07-21 — no están escritos en requisitos-sistema.md ni en
+    // tablas-evaluacion-convocatorias.md. Dejar registrado aquí para que sea
+    // trazable si se cuestiona el valor más adelante.
+    const PUNTAJE_MINIMO_APROBATORIO = 50.0;
     const MAX_RESERVAS               = 3;
 
     /**
      * Genera y persiste el ranking de una plaza dentro de una convocatoria.
+     *
+     * Los grupos empatados cuya posición de inicio cae dentro del rango
+     * contactable (1..1+MAX_RESERVAS) se dejan en `empate_pendiente` — todas
+     * las filas del grupo comparten la posición de INICIO del grupo hasta
+     * que resolverEmpate() asigna el orden final decidido por la comisión.
      */
     public function generarRankingPlaza(Convocatoria $convocatoria, Plaza $plaza): Collection
     {
@@ -60,14 +81,12 @@ class ResultadosService
             return collect();
         }
 
-        // Ordenar por puntaje DESC — los empates se resuelven con random (sorteo)
+        // Ordenar por puntaje DESC. Este orden es solo un criterio de
+        // agrupación para detectar empates — dentro de un grupo empatado NO
+        // se usa para decidir nada (ver bloque de empates abajo).
         $ordenadas = $evaluaciones
             ->sortByDesc('puntaje_total')
             ->values();
-
-        // Detectar y marcar empates al corte del ganador
-        $empateEnGanador = $ordenadas->count() > 1
-            && (float) $ordenadas[0]->puntaje_total === (float) $ordenadas[1]->puntaje_total;
 
         // Si el mejor puntaje no alcanza el mínimo → desierta
         if ((float) $ordenadas->first()->puntaje_total < self::PUNTAJE_MINIMO_APROBATORIO) {
@@ -84,39 +103,142 @@ class ResultadosService
             return collect();
         }
 
+        $rangoContactable = 1 + self::MAX_RESERVAS; // posiciones 1..4 (ganador + reservas)
         $resultados = collect();
+        $n = $ordenadas->count();
+        $i = 0;
+        $posicionActual = 0;
 
-        foreach ($ordenadas as $index => $evaluacion) {
-            $posicion = $index + 1;
-
-            if ($posicion === 1) {
-                $estado = Resultado::ESTADO_GANADOR;
-                $plaza->update(['estado' => 'cubierta']);
-            } elseif ($posicion <= 1 + self::MAX_RESERVAS) {
-                $estado = Resultado::ESTADO_RESERVA;
-            } else {
-                $estado = Resultado::ESTADO_NO_GANADOR;
+        while ($i < $n) {
+            // Extender el grupo mientras el puntaje sea exactamente igual
+            $j = $i;
+            while ($j + 1 < $n
+                && (float) $ordenadas[$j + 1]->puntaje_total === (float) $ordenadas[$i]->puntaje_total) {
+                $j++;
             }
 
-            $resultado = Resultado::create([
-                'convocatoria_id'            => $convocatoria->id,
-                'plaza_id'                   => $plaza->id,
-                'postulacion_id'             => $evaluacion->postulacion_id,
-                'evaluacion_id'              => $evaluacion->id,
-                'puntaje_total'              => (float) $evaluacion->puntaje_total,
-                'posicion'                   => $posicion,
-                'estado'                     => $estado,
-                'empate_resuelto_por_sorteo' => $empateEnGanador && $posicion <= 2,
-            ]);
+            $tamanoGrupo   = $j - $i + 1;
+            $posicionInicio = $posicionActual + 1;
+            $esEmpate       = $tamanoGrupo > 1;
+            $requiereDecision = $esEmpate && $posicionInicio <= $rangoContactable;
 
-            $resultados->push($resultado);
+            if ($requiereDecision) {
+                $plaza->update(['estado' => 'en_proceso']); // aún no se puede cubrir/declarar desierta
+
+                for ($k = $i; $k <= $j; $k++) {
+                    $evaluacion = $ordenadas[$k];
+                    $resultados->push(Resultado::create([
+                        'convocatoria_id' => $convocatoria->id,
+                        'plaza_id'        => $plaza->id,
+                        'postulacion_id'  => $evaluacion->postulacion_id,
+                        'evaluacion_id'   => $evaluacion->id,
+                        'puntaje_total'   => (float) $evaluacion->puntaje_total,
+                        'posicion'        => $posicionInicio, // provisional: inicio del grupo
+                        'estado'          => Resultado::ESTADO_EMPATE_PENDIENTE,
+                        'empatada'        => true,
+                    ]));
+                }
+            } else {
+                for ($k = $i; $k <= $j; $k++) {
+                    $posicion = $posicionActual + ($k - $i) + 1;
+                    $estado   = $this->estadoParaPosicion($posicion, $rangoContactable);
+
+                    if ($posicion === 1) {
+                        $plaza->update(['estado' => 'cubierta']);
+                    }
+
+                    $evaluacion = $ordenadas[$k];
+                    $resultados->push(Resultado::create([
+                        'convocatoria_id' => $convocatoria->id,
+                        'plaza_id'        => $plaza->id,
+                        'postulacion_id'  => $evaluacion->postulacion_id,
+                        'evaluacion_id'   => $evaluacion->id,
+                        'puntaje_total'   => (float) $evaluacion->puntaje_total,
+                        'posicion'        => $posicion,
+                        'estado'          => $estado,
+                        'empatada'        => $esEmpate,
+                    ]));
+                }
+            }
+
+            $posicionActual += $tamanoGrupo;
+            $i = $j + 1;
         }
 
         return $resultados;
     }
 
     /**
-     * Publica los resultados de toda la convocatoria (todas las plazas deben tener ranking).
+     * La comisión registra el orden decidido manualmente para un grupo de
+     * postulaciones empatadas (estado `empate_pendiente`), identificado por
+     * la posición de inicio del grupo dentro del ranking de la plaza.
+     *
+     * $ordenPostulacionIds debe contener exactamente los mismos
+     * postulacion_id del grupo pendiente, en el orden decidido (primero =
+     * mejor posición). Registra quién decidió y cuándo para auditoría.
+     */
+    public function resolverEmpate(
+        Convocatoria $convocatoria,
+        Plaza $plaza,
+        int $posicionInicio,
+        array $ordenPostulacionIds,
+        int $decididoPorId
+    ): Collection {
+        $pendientes = Resultado::where('convocatoria_id', $convocatoria->id)
+            ->where('plaza_id', $plaza->id)
+            ->where('estado', Resultado::ESTADO_EMPATE_PENDIENTE)
+            ->where('posicion', $posicionInicio)
+            ->get()
+            ->keyBy('postulacion_id');
+
+        if ($pendientes->isEmpty()) {
+            throw new \RuntimeException('No hay un grupo empatado pendiente en esa posición.');
+        }
+
+        if ($pendientes->keys()->sort()->values()->toArray() !== collect($ordenPostulacionIds)->sort()->values()->toArray()) {
+            throw new \InvalidArgumentException('El orden proporcionado no coincide exactamente con el grupo empatado pendiente.');
+        }
+
+        $rangoContactable = 1 + self::MAX_RESERVAS;
+        $resultados = collect();
+
+        foreach ($ordenPostulacionIds as $index => $postulacionId) {
+            $posicionFinal = $posicionInicio + $index;
+            $estado        = $this->estadoParaPosicion($posicionFinal, $rangoContactable);
+
+            $resultado = $pendientes->get($postulacionId);
+            $resultado->update([
+                'posicion'     => $posicionFinal,
+                'estado'       => $estado,
+                'orden_manual' => true,
+                'decidido_por' => $decididoPorId,
+                'decidido_en'  => now(),
+            ]);
+
+            if ($posicionFinal === 1) {
+                $plaza->update(['estado' => 'cubierta']);
+            }
+
+            $resultados->push($resultado->fresh());
+        }
+
+        return $resultados;
+    }
+
+    private function estadoParaPosicion(int $posicion, int $rangoContactable): string
+    {
+        if ($posicion === 1) {
+            return Resultado::ESTADO_GANADOR;
+        }
+
+        return $posicion <= $rangoContactable
+            ? Resultado::ESTADO_RESERVA
+            : Resultado::ESTADO_NO_GANADOR;
+    }
+
+    /**
+     * Publica los resultados de toda la convocatoria (todas las plazas deben
+     * tener ranking generado y sin empates pendientes de resolver).
      */
     public function publicarResultados(Convocatoria $convocatoria, int $publicadoPorId): void
     {
