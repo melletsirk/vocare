@@ -6,37 +6,43 @@ import api from '@/services/api'
 const router      = useRouter()
 const evaluaciones = ref<any[]>([])
 const loading      = ref(true)
+const error        = ref('')
 
 const estadoBadge: Record<string, string> = {
-  en_proceso:'badge-yellow', completada:'badge-blue', cerrada:'badge-green',
+  en_proceso: 'badge-yellow', completada: 'badge-blue', cerrada: 'badge-green',
 }
 
 onMounted(async () => {
-  // Las evaluaciones vienen desde postulaciones que tengan evaluacion asignada
-  const { data } = await api.get('/postulaciones', { params: { estado: 'enviada' } })
-  const posts = data.data ?? data
-  // Para cada postulación con evaluación, mostrarla
-  const evs: any[] = []
-  for (const p of posts.slice(0, 20)) {
-    if (p.evaluacion) evs.push({ ...p.evaluacion, postulacion: p })
+  try {
+    // GET /evaluaciones devuelve las evaluaciones asignadas al usuario (evaluador/admin)
+    // con postulacion.plaza, postulacion.convocatoria y postulacion.user eager-loaded
+    const { data } = await api.get('/evaluaciones')
+    evaluaciones.value = data.data ?? data
+  } catch (e: any) {
+    error.value = e.response?.data?.message || 'Error al cargar evaluaciones.'
+  } finally {
+    loading.value = false
   }
-  evaluaciones.value = evs
-  loading.value = false
 })
 </script>
 
 <template>
   <div>
     <div class="page-header">
-      <h1>Bandeja de Evaluaciones</h1>
+      <div>
+        <h1>Bandeja de evaluaciones</h1>
+        <p>Expedientes asignados para calificar</p>
+      </div>
     </div>
 
     <div v-if="loading" class="loading-center"><span class="spinner"></span></div>
 
+    <div v-else-if="error" class="alert alert-error">{{ error }}</div>
+
     <div v-else-if="evaluaciones.length === 0" class="card">
       <div class="empty-state">
         <h3>Sin evaluaciones asignadas</h3>
-        <p>No tienes evaluaciones pendientes en este momento.</p>
+        <p>No tienes expedientes pendientes de calificar en este momento.</p>
       </div>
     </div>
 
@@ -65,7 +71,7 @@ onMounted(async () => {
                 <span v-else class="text-muted">—</span>
               </td>
               <td>
-                <span class="badge" :class="estadoBadge[ev.estado]">{{ ev.estado }}</span>
+                <span class="badge" :class="estadoBadge[ev.estado] || 'badge-gray'">{{ ev.estado }}</span>
               </td>
               <td>
                 <RouterLink :to="`/evaluaciones/${ev.id}`" class="btn btn-ghost btn-sm">
