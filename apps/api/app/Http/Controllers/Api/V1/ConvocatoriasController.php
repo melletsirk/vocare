@@ -44,23 +44,28 @@ class ConvocatoriasController extends Controller
 
     /**
      * POST /api/v1/convocatorias
+     *
+     * Genera el snapshot inmutable de la tabla de evaluación
+     * al momento de crear la convocatoria (no al publicarla).
+     * Esto garantiza trazabilidad completa desde el origen, independientemente
+     * de si la tabla de evaluación se modifica antes de publicar.
      */
     public function store(Request $request): JsonResponse
     {
         $this->authorize('convocatorias.crear');
 
         $data = $request->validate([
-            'codigo'                => ['required', 'string', 'max:30', 'unique:convocatorias,codigo'],
-            'nombre'                => ['required', 'string', 'max:255'],
-            'tabla_evaluacion_id'   => ['required', 'exists:tablas_evaluacion,id'],
-            'tipo_proceso'          => ['required', 'string'],
-            'modalidad'             => ['nullable', 'string'],
-            'fecha_inicio'          => ['required', 'date'],
-            'fecha_fin'             => ['required', 'date', 'after:fecha_inicio'],
-            'descripcion'           => ['nullable', 'string'],
+            'codigo'              => ['required', 'string', 'max:30', 'unique:convocatorias,codigo'],
+            'nombre'              => ['required', 'string', 'max:255'],
+            'tabla_evaluacion_id' => ['required', 'exists:tablas_evaluacion,id'],
+            'tipo_proceso'        => ['required', 'string'],
+            'modalidad'           => ['nullable', 'string'],
+            'fecha_inicio'        => ['required', 'date'],
+            'fecha_fin'           => ['required', 'date', 'after:fecha_inicio'],
+            'descripcion'         => ['nullable', 'string'],
         ]);
 
-        $tabla = TablaEvaluacion::findOrFail($data['tabla_evaluacion_id']);
+        $tabla = TablaEvaluacion::with('rubros.variables.indicadores')->findOrFail($data['tabla_evaluacion_id']);
 
         $convocatoria = Convocatoria::create([
             ...$data,
@@ -68,6 +73,12 @@ class ConvocatoriasController extends Controller
             'estado'                => Convocatoria::ESTADO_BORRADOR,
             'creado_por'            => $request->user()->id,
         ]);
+
+        // Snapshot inmutable de la tabla de evaluación (Fase 2-B).
+        // Se toma al crear para que apelaciones futuras siempre apunten a la
+        // tabla vigente en el momento de abrir el proceso.
+        $convocatoria->load('tablaEvaluacion.rubros.variables.indicadores');
+        $convocatoria->generarSnapshot();
 
         AuditService::log('convocatoria.creada', $convocatoria, [], $convocatoria->toArray());
 
@@ -116,14 +127,9 @@ class ConvocatoriasController extends Controller
 
         $old = $convocatoria->toArray();
 
-        // Al publicar: generar snapshot inmutable de la tabla de evaluación
-        if (isset($data['estado']) && $data['estado'] === Convocatoria::ESTADO_PUBLICADA
-            && $convocatoria->estado === Convocatoria::ESTADO_BORRADOR) {
-            $convocatoria->update($data);
-            $convocatoria->generarSnapshot();
-        } else {
-            $convocatoria->update($data);
-        }
+        // El snapshot de la tabla de evaluación ya se generó en store().
+        // update() solo actualiza datos del proceso; el snapshot no se regenera.
+        $convocatoria->update($data);
 
         AuditService::log('convocatoria.actualizada', $convocatoria, $old, $convocatoria->fresh()->toArray());
 
