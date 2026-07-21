@@ -67,6 +67,25 @@ class ConvocatoriasController extends Controller
 
         $tabla = TablaEvaluacion::with('rubros.variables.indicadores')->findOrFail($data['tabla_evaluacion_id']);
 
+        // La tabla de evaluación ya está construida para un tipo_proceso y
+        // modalidad específicos (ver requisitos-sistema.md §8) — evita que
+        // se cree una convocatoria con datos inconsistentes con la tabla
+        // seleccionada (ej. tipo_proceso="ascenso" usando el Anexo 1 de
+        // contratación).
+        if ($tabla->tipo_proceso !== $data['tipo_proceso']) {
+            return response()->json([
+                'message' => 'El tipo de proceso no coincide con la tabla de evaluación seleccionada.',
+                'code'    => 'TIPO_PROCESO_INCONSISTENTE',
+            ], 422);
+        }
+
+        if ($tabla->modalidad !== null && ($data['modalidad'] ?? null) !== $tabla->modalidad) {
+            return response()->json([
+                'message' => 'La modalidad no coincide con la tabla de evaluación seleccionada.',
+                'code'    => 'MODALIDAD_INCONSISTENTE',
+            ], 422);
+        }
+
         $convocatoria = Convocatoria::create([
             ...$data,
             'reglamento_version_id' => $tabla->reglamento_version_id,
