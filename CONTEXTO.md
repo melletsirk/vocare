@@ -77,15 +77,17 @@ vocare/
   - Backend ✅ completo
   - Frontend postulante ✅ completo
   - Frontend evaluador ✅ corregido y funcional (2026-07-20)
-- ⚖️ **Sprint 5** — Evaluación y Cálculo (en curso, 2026-07-21)
+- ✅ **Sprint 5** — Evaluación y Cálculo (completado 2026-07-21)
   - `periodo_validez_anios` integrado en `CalculadorService` ✅
-  - Asignación de evaluadores (backend) ✅ — modelo `AsignacionEvaluador`,
-    `AsignacionesController`, gate en `EvaluacionesController::crear`
+  - Asignación de evaluadores (backend + frontend) ✅ — modelo
+    `AsignacionEvaluador`, `AsignacionesController`, gate en
+    `EvaluacionesController::crear`, pestaña "Asignaciones" en
+    `ConvocatoriaDetalleView.vue`
+  - `BandejaEvaluacionesView` muestra asignadas-sin-iniciar (con botón
+    "Iniciar evaluación") además de las ya iniciadas ✅
   - Verificación completa contra requisitos-sistema.md y
     tablas-evaluacion-convocatorias.md ✅ (2026-07-21) — ver hallazgos abajo
   - Empate resuelto por decisión manual de comisión (no auto/sorteo) ✅
-  - Pendiente: frontend de asignación (admin) y bandeja del evaluador
-    mostrando postulaciones asignadas sin evaluación aún
 - 📊 **Sprint 6** — Resultados, Reportes y Cierre MVP (en curso, 2026-07-21)
   - Frontend de cierre de evaluación en `ResultadosView.vue` ✅ (generar
     ranking, declarar desierta, resolver empates — el backend ya existía sin
@@ -142,9 +144,76 @@ vocare/
   índice en el mismo `Schema::table()` — inofensivo en Postgres pero
   revelado al validar contra Postgres real en la BD de test).
 - **Pendiente de decisión, no bloqueante:** `Indicador` (tabla vacía —
-  TABLA_EQUIVALENCIA sin rangos canónicos seedeados) y `Etapa` (schema sin
-  ningún controller/lógica — el flujo de evaluación multi-etapa del spec no
-  está modelado, todo se calcula como una sola Ficha plana).
+  TABLA_EQUIVALENCIA sin rangos canónicos seedeados).
+
+### 📐 Diseño Fase 1 — `Etapa` (2026-07-21, sin código todavía)
+
+Contexto real aportado por el cliente: Clase Magistral es un evento presencial
+(no un documento) — hay un gap temporal real entre Validación/CV y Clase
+Magistral, el jurado puede ser gente distinta a quien revisó documentos, y el
+resultado se transcribe al sistema después del hecho, no en vivo por quien lo
+juzgó necesariamente.
+
+**Gap técnico real encontrado durante el diseño:** hoy `CalculadorService`
+solo permite entrada manual persistente para variables `TABLA_EQUIVALENCIA`
+(vía `guardarPuntaje` → `tablaEquivalencia()`). Las variables `SUMA_CON_TOPE`
+de "Demostración Magistral"/"Sesión de Prácticas" (Anexo 1/2) **no tienen
+ningún camino de entrada hoy** — dependen de `Evidencia`, que una clase en
+vivo no genera. Esto no es un problema nuevo del diseño de Etapa, es un hueco
+ya existente que el diseño expone.
+
+**Diseño propuesto (Fase 2, no implementado):**
+- `Variable` gana un campo `fuente` (`evidencia` | `etapa`), ortogonal a
+  `tipo_calculo` (que sigue gobernando cómo se topa/interpreta el número, no
+  de dónde sale).
+- Nuevo pivote `postulacion_etapa` (mismo patrón que `postulacion_evidencia`):
+  `fecha_programada`/`fecha_realizada`, `estado` (pendiente|aprobada|
+  observada|rechazada|no_presentado), `puntaje_bruto_evento`, `jurado_texto`
+  (texto libre — confirmado con cliente: **un solo puntaje por
+  rubro/etapa, sin desglose por jurado en el sistema** — no requiere cambio
+  de esquema adicional), `comentario`, `registrado_por`.
+- `AsignacionEvaluador` gana `etapa_id` nullable (constraint única pasa a
+  `postulacion_id + evaluador_id + etapa_id`); `null` = asignado a toda la
+  postulación (compatible con el comportamiento actual), un valor específico
+  = jurado de esa etapa únicamente (ej. Clase Magistral con jurado distinto a
+  quien validó documentos).
+- **`Etapa` NO lleva un flag `es_eliminatoria` booleano.** Decisión del
+  cliente: el reglamento (RES 9245-CU-2025) no usa el concepto de
+  "eliminatoria" en ningún punto — no presentarse o sacar 0 en Clase
+  Magistral no es un auto-rechazo hardcodeado, es una variable más que aporta
+  0 si no tiene puntaje. La exclusión se maneja con los mínimos existentes
+  (ver abajo), no con una bandera nueva.
+
+**Hallazgo del cliente sobre mínimos (pendiente de confirmar, ver abajo):**
+`ResultadosService::PUNTAJE_MINIMO_APROBATORIO = 50` es un único constante
+global, pero el reglamento fuente define, por anexo, un **mínimo total +
+un mínimo de sub-rubro separado**:
+- Anexo 1: mínimo total 55, mínimo 20 en "Aptitud Docente" (rollup que suma
+  "Elaboración del Sílabo" + "Demostración Magistral" — **no** son dos
+  sub-rubros independientes con su propio mínimo; `tablas-evaluacion-
+  convocatorias.md` los lista como sub-rubros separados sin ninguna mención
+  de "Aptitud Docente", así que este rollup no está en ningún `.md` del
+  proyecto).
+- Anexo 2: mínimo total 52, sub-mínimo 18 en Aptitud Docente.
+- Anexo 3: mínimo total 60, sub-mínimo 18 en "Concurso de Oposición"
+  (incluye Clase Magistral).
+- Ninguno de estos tres números coincide con el 50 actual, y hoy no existe
+  ningún chequeo de mínimo de sub-rubro en el motor.
+- **Diseño (cuando se confirme):** los mínimos dejan de ser una constante de
+  código y pasan a vivir en `tabla_snapshot`, junto a `puntaje_max`/
+  `puntaje_max_subrubro` (son config del anexo, no una constante global). El
+  mínimo de sub-rubro necesita poder referenciar un **grupo de rubro_ids**
+  (por el caso "Aptitud Docente"), no solo un rubro individual.
+
+**Bloqueado hasta que el cliente confirme (no tocar código/seed mientras tanto):**
+1. Si 55/52/60 + los sub-mínimos son los valores vigentes — el sistema corrió
+   con 50 sin reclamos, así que el cliente debe confirmar si 50 fue elegido a
+   propósito para algún anexo aún no revisado, o si de verdad hay que
+   moverse a mínimos por anexo.
+2. Si el requisito de mínimo de sub-rubro sigue vigente en esta versión del
+   TUO (V10, Junio 2025).
+3. Si Anexo 2 y Anexo 3 también son rollups sobre sub-rubros existentes o
+   mínimos de un solo rubro (solo se confirmó el caso de Anexo 1).
 
 ### Sprints pendientes
 
@@ -423,6 +492,8 @@ docker compose exec api php artisan tinker
 | 2026-07-20 | Fase 1 (diseño) + Fase 2 (implementación) del rediseño de evidencias: migración, modelo PostulacionEvidencia, Evidencia/Expediente/Postulacion actualizados, EvidenciasController reescrito, rutas nuevas. Brecha #1 cerrada. | Sprint 4 — Portal del Postulante                          |
 | 2026-07-21 | Sprint 5: (1) Fix CalculadorService para leer vigencia/aprobación por `postulacion_evidencia` en vez del estado global de Evidencia (brecha #3 cerrada). (2) Asignación de evaluadores: modelo AsignacionEvaluador, AsignacionesController (index/store/destroy), permisos nuevos, gate en `POST /postulaciones/{id}/evaluacion` (evaluador ya no se auto-asigna). 10 tests nuevos, seeders re-corridos en dev. | Frontend de asignación (admin) + bandeja evaluador con asignadas pendientes |
 | 2026-07-21 | Sprint 6: frontend de cierre de evaluación en ResultadosView (generar ranking, declarar desierta, resolver empates — backend ya existía sin UI); reporte interno con desglose completo (`CalculadorService::desglosar()` extraído y reutilizado); vista de resultado propio del postulante; cobertura de auditoría completada (plazas, puntaje manual). Se agrega `CLAUDE.MD`: sin atribución de IA en commits, el asistente propone comandos de git en vez de commitear directamente. | Sprint 6 — hardening y E2E (Playwright), diferido |
+| 2026-07-21 | Cierre de Sprint 5: pestaña "Asignaciones" en ConvocatoriaDetalleView (admin asigna/quita evaluadores por postulación enviada) y BandejaEvaluacionesView actualizada para mostrar asignadas-sin-iniciar con botón "Iniciar evaluación" — requirió exponer `postulacion.evaluacion` en `GET /asignaciones`. | Sprint 6 — hardening y E2E (Playwright), único pendiente |
+| 2026-07-21 | Fix de las 6 fallas recurrentes de la suite (logout sin null-safe, APP_KEY vacío, RolesPermissionsTest probando el modelo de 6 roles abandonado) — suite en 0 fallas. Se agrega `CLAUDE.MD`: sin atribución de IA, el asistente propone comandos de git en vez de commitear. Bug de autorización: `show()`/`calcular()`/`cerrar()`/`guardarPuntaje()` de EvaluacionesController solo verificaban el permiso general, no que el evaluador fuera el dueño de la evaluación — corregido en los 4 endpoints. Diseño Fase 1 de `Etapa` discutido (ver sección dedicada) — bloqueado en confirmación del cliente sobre mínimos por anexo. | Sprint 6 — E2E, bloqueado hasta que se confirme el diseño de Etapa/mínimos |
 
 ---
 
