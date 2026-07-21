@@ -15,6 +15,7 @@ const loading = ref(true)
 const tab     = ref<'plazas'|'tabla'|'resultados'>('plazas')
 const showPlazaModal = ref(false)
 const savingPlaza    = ref(false)
+const publicando     = ref(false)
 const plazaForm = ref({ facultad:'', departamento:'', asignatura:'', modalidad:'', horas_semana:'' })
 
 const estadoBadge: Record<string, string> = {
@@ -43,6 +44,19 @@ async function cargar() {
     plazas.value = pRes.data
   } finally {
     loading.value = false
+  }
+}
+
+async function publicar() {
+  if (!confirm('¿Publicar esta convocatoria? Los postulantes podrán verla y postular.')) return
+  publicando.value = true
+  try {
+    await api.patch(`/convocatorias/${id}`, { estado: 'publicada' })
+    await cargar()
+  } catch (e: any) {
+    alert(e.response?.data?.message || 'No se pudo publicar la convocatoria')
+  } finally {
+    publicando.value = false
   }
 }
 
@@ -76,6 +90,15 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
         <p>{{ conv.codigo }} · {{ conv.tipo_proceso }}</p>
       </div>
       <div class="flex gap-2">
+        <button
+          v-if="canManage && conv.estado === 'borrador'"
+          class="btn btn-primary btn-sm"
+          :disabled="publicando"
+          @click="publicar"
+        >
+          <span v-if="publicando" class="spinner"></span>
+          {{ publicando ? 'Publicando...' : 'Publicar convocatoria' }}
+        </button>
         <RouterLink :to="`/convocatorias/${id}/resultados`" class="btn btn-secondary btn-sm">
           Ver resultados
         </RouterLink>
