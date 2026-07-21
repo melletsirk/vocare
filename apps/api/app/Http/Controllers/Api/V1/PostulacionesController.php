@@ -156,6 +156,8 @@ class PostulacionesController extends Controller
      */
     public function actualizarEstado(Request $request, Postulacion $postulacion): JsonResponse
     {
+        $this->authorize('postulaciones.ver_todas');
+
         $data = $request->validate([
             'estado'          => ['required', Rule::in([
                 Postulacion::ESTADO_OBSERVADA,
