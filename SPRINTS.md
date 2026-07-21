@@ -6,13 +6,14 @@ manera eficiente.
 
 ## Estado General
 
-- **Estado Actual:** 🟢 Sprint 5 en curso — `periodo_validez_anios`, asignación de evaluadores (backend) y resolución manual de empates completados 2026-07-21; verificación completa contra ambos .md de spec hecha el mismo día (ver CONTEXTO.md)
+- **Estado Actual:** 🟢 Sprint 6 en curso — cierre de evaluación (ranking/desierta/empate), reportes internos con desglose, vista de resultado del postulante, y cobertura de auditoría completados 2026-07-21
 - **Base de datos:** PostgreSQL exclusivamente (migraciones y seeders aplicados 2026-07-20; seeder de roles/permisos re-corrido 2026-07-21 para `asignaciones.*`)
 - **Tests:** PostgreSQL exclusivo (sin SQLite) — corren contra `vocare_test`, aislada de `vocare`. `docker compose exec api php artisan test` normal, sin flags extra (fix aplicado 2026-07-21, ver CONTEXTO.md).
-- **Próxima Acción:** Sprint 5 — frontend de asignación de evaluadores (admin),
-  bandeja del evaluador mostrando asignadas pendientes, y UI de desempate
-  para la comisión (endpoint backend ya existe:
-  `POST /convocatorias/{id}/plazas/{id}/resultados/desempatar`).
+- **Git:** ver `CLAUDE.MD` en la raíz — sin atribución de IA en commits, y el asistente propone comandos de git para que el usuario los ejecute (no commitea de forma autónoma).
+- **Pendiente de Sprint 5:** frontend de asignación de evaluadores (admin) y
+  bandeja del evaluador mostrando asignadas pendientes.
+- **Próxima Acción:** Sprint 6 — hardening final y pruebas E2E (Playwright),
+  sigue diferido como deuda técnica explícita.
 
 ---
 
@@ -152,17 +153,33 @@ cálculo de Vocare.
       vigencia (`CalculadorServiceVigenciaTest`) + 7 tests de asignación
       (`AsignacionEvaluadorTest`), además de los 15 ya existentes.
 
-## 📊 Sprint 6: Resultados, Reportes y Cierre MVP
+## 📊 Sprint 6: Resultados, Reportes y Cierre MVP — EN CURSO (2026-07-21)
 
 **Objetivo:** Finalizar el proceso de evaluación, mostrar resultados y pulir el
 sistema.
 
-- [ ] Lógica de cierre de evaluación (empate, plaza desierta, selección de
-      ganador).
-- [ ] Reportes internos completos con desglose de puntaje para uso
-      administrativo.
-- [ ] Vista del postulante restringida (visualización exclusiva del puntaje
-      total, sin desglose).
-- [ ] Auditoría: asegurar que las acciones críticas quedan registradas (quién,
-      cuándo, qué cambió).
-- [ ] Hardening final y pruebas de extremo a extremo (E2E).
+- [x] Lógica de cierre de evaluación (empate, plaza desierta, selección de
+      ganador). Backend ya existía (Sprint 5); agregado el frontend que
+      faltaba en `ResultadosView.vue`: generar/recalcular ranking por plaza,
+      declarar desierta, y resolución manual de empates (reordenar +
+      confirmar) — antes no había ninguna forma de invocar estos endpoints
+      desde la UI.
+- [x] Reportes internos completos con desglose de puntaje para uso
+      administrativo. `AuditoriaController::reporteConvocatoria` incluía solo
+      totales y todavía referenciaba el campo `empate_resuelto_por_sorteo`
+      (eliminado); ahora incluye el desglose completo por sub-rubro/variable
+      de cada ganador (`CalculadorService::desglosar()`, extraído y
+      reutilizado también por `EvaluacionesController::desglose`).
+- [x] Vista del postulante restringida (visualización exclusiva del puntaje
+      total, sin desglose). No existía ninguna vista que consumiera
+      `GET /postulaciones/{id}/resultado` — agregada en
+      `PostulacionDetalleView.vue` (solo total/posición/estado, sin acceso al
+      desglose).
+- [x] Auditoría: asegurar que las acciones críticas quedan registradas (quién,
+      cuándo, qué cambió). Auditoría de cobertura sobre todos los
+      controllers: faltaba en `PlazasController::store/update` y
+      `EvaluacionesController::guardarPuntaje` (puntaje manual sin rastro) —
+      agregado.
+- [ ] Hardening final y pruebas de extremo a extremo (E2E). Sigue diferido
+      (deuda técnica explícita, ver sección correspondiente) — no abordado en
+      esta sesión.

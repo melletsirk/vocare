@@ -84,9 +84,19 @@ vocare/
   - Verificación completa contra requisitos-sistema.md y
     tablas-evaluacion-convocatorias.md ✅ (2026-07-21) — ver hallazgos abajo
   - Empate resuelto por decisión manual de comisión (no auto/sorteo) ✅
-  - Pendiente: frontend de asignación (admin), bandeja del evaluador
-    mostrando postulaciones asignadas sin evaluación aún, y UI para que la
-    comisión resuelva empates (`POST .../resultados/desempatar` ya existe)
+  - Pendiente: frontend de asignación (admin) y bandeja del evaluador
+    mostrando postulaciones asignadas sin evaluación aún
+- 📊 **Sprint 6** — Resultados, Reportes y Cierre MVP (en curso, 2026-07-21)
+  - Frontend de cierre de evaluación en `ResultadosView.vue` ✅ (generar
+    ranking, declarar desierta, resolver empates — el backend ya existía sin
+    ninguna forma de invocarlo desde la UI)
+  - Reporte interno con desglose completo por sub-rubro/variable ✅
+    (`AuditoriaController::reporteConvocatoria` + `CalculadorService::desglosar()`)
+  - Vista de resultado propio del postulante (solo total/posición) ✅
+    en `PostulacionDetalleView.vue`
+  - Cobertura de auditoría completada (plazas, puntaje manual) ✅
+  - Pendiente: hardening final y E2E (Playwright) — deuda técnica explícita,
+    no abordado
 
 ### 🔎 Hallazgos de la verificación contra spec (2026-07-21)
 
@@ -412,6 +422,7 @@ docker compose exec api php artisan tinker
 | 2026-07-14 | Auditoría de código real contra spec: evidencias no reutilizables (campo `reutilizada` decorativo), snapshot se genera en publicar() no en create(). Decisión: pausar Sprint 4 hasta rediseñar modelo evidencias.             | Diseñar evidencias_maestro + pivote postulacion_evidencia |
 | 2026-07-20 | Fase 1 (diseño) + Fase 2 (implementación) del rediseño de evidencias: migración, modelo PostulacionEvidencia, Evidencia/Expediente/Postulacion actualizados, EvidenciasController reescrito, rutas nuevas. Brecha #1 cerrada. | Sprint 4 — Portal del Postulante                          |
 | 2026-07-21 | Sprint 5: (1) Fix CalculadorService para leer vigencia/aprobación por `postulacion_evidencia` en vez del estado global de Evidencia (brecha #3 cerrada). (2) Asignación de evaluadores: modelo AsignacionEvaluador, AsignacionesController (index/store/destroy), permisos nuevos, gate en `POST /postulaciones/{id}/evaluacion` (evaluador ya no se auto-asigna). 10 tests nuevos, seeders re-corridos en dev. | Frontend de asignación (admin) + bandeja evaluador con asignadas pendientes |
+| 2026-07-21 | Sprint 6: frontend de cierre de evaluación en ResultadosView (generar ranking, declarar desierta, resolver empates — backend ya existía sin UI); reporte interno con desglose completo (`CalculadorService::desglosar()` extraído y reutilizado); vista de resultado propio del postulante; cobertura de auditoría completada (plazas, puntaje manual). Se agrega `CLAUDE.MD`: sin atribución de IA en commits, el asistente propone comandos de git en vez de commitear directamente. | Sprint 6 — hardening y E2E (Playwright), diferido |
 
 ---
 
