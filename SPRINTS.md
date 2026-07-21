@@ -6,10 +6,13 @@ manera eficiente.
 
 ## Estado General
 
-- **Estado Actual:** 🟢 Sprint 4 en curso — backend + frontend postulante + evaluador completados
-- **Base de datos:** PostgreSQL exclusivamente (migraciones y seeders aplicados 2026-07-20)
-- **Próxima Acción:** Sprint 5 — motor de cálculo con `periodo_validez_anios` y
-  asignación de evaluadores.
+- **Estado Actual:** 🟢 Sprint 5 en curso — `periodo_validez_anios`, asignación de evaluadores (backend) y resolución manual de empates completados 2026-07-21; verificación completa contra ambos .md de spec hecha el mismo día (ver CONTEXTO.md)
+- **Base de datos:** PostgreSQL exclusivamente (migraciones y seeders aplicados 2026-07-20; seeder de roles/permisos re-corrido 2026-07-21 para `asignaciones.*`)
+- **Tests:** PostgreSQL exclusivo (sin SQLite) — corren contra `vocare_test`, aislada de `vocare`. `docker compose exec api php artisan test` normal, sin flags extra (fix aplicado 2026-07-21, ver CONTEXTO.md).
+- **Próxima Acción:** Sprint 5 — frontend de asignación de evaluadores (admin),
+  bandeja del evaluador mostrando asignadas pendientes, y UI de desempate
+  para la comisión (endpoint backend ya existe:
+  `POST /convocatorias/{id}/plazas/{id}/resultados/desempatar`).
 
 ---
 
@@ -124,16 +127,30 @@ evidencias. **Depende de:** gate de evidencias de Sprint 3 → ✅ RESUELTO.
 **Objetivo:** Implementar la interfaz del evaluador y el núcleo del motor de
 cálculo de Vocare.
 
-- [ ] Lógica de asignación de expedientes a evaluadores/comisión.
+- [x] Lógica de asignación de expedientes a evaluadores/comisión — **backend
+      completo 2026-07-21.** Modelo `AsignacionEvaluador` (tabla
+      `asignaciones_evaluador`, ya existía sin usar), `AsignacionesController`
+      (`index`/`store`/`destroy`), permisos `asignaciones.gestionar` /
+      `asignaciones.ver`. `POST /postulaciones/{id}/evaluacion` ahora exige
+      asignación previa para el rol `evaluador` (ya no hay auto-asignación) —
+      403 `EVALUADOR_NO_ASIGNADO` si no está asignado. Admin no requiere
+      asignación previa.
+      - [ ] Pendiente: frontend admin para gestionar asignaciones (vista aún
+        no existe) y actualizar `BandejaEvaluacionesView` para mostrar
+        postulaciones asignadas sin evaluación creada todavía.
 - [ ] Frontend: Bandeja del evaluador, validación de evidencias
       (rechazo/observación) — opera sobre `postulacion_evidencia`, no sobre
       la evidencia maestra directamente.
-- [ ] Backend: Motor de cálculo con reglas (`SUMA_CON_TOPE`, `MAYOR_VALOR`,
+- [x] Backend: Motor de cálculo con reglas (`SUMA_CON_TOPE`, `MAYOR_VALOR`,
       `TABLA_EQUIVALENCIA`) y topes de dos niveles (variable y sub-rubro).
-- [ ] Integrar `periodo_validez_anios` en `CalculadorService` (desbloqueado
-      tras rediseño de evidencias).
-- [ ] Unit tests críticos para el motor de cálculo según las reglas de los
-      anexos.
+- [x] Integrar `periodo_validez_anios` en `CalculadorService` —
+      **COMPLETADO 2026-07-21.** `evidenciasAprobadasDeVariable()` ahora lee
+      por `postulacion_evidencia` (estado_en_postulacion=aprobada **y**
+      vigente=true) en lugar del estado global de `Evidencia`; antes ignoraba
+      vigencia y aprobación por postulación.
+- [x] Unit/feature tests críticos para el motor de cálculo — 3 tests de
+      vigencia (`CalculadorServiceVigenciaTest`) + 7 tests de asignación
+      (`AsignacionEvaluadorTest`), además de los 15 ya existentes.
 
 ## 📊 Sprint 6: Resultados, Reportes y Cierre MVP
 

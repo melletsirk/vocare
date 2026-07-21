@@ -77,6 +77,64 @@ vocare/
   - Backend ✅ completo
   - Frontend postulante ✅ completo
   - Frontend evaluador ✅ corregido y funcional (2026-07-20)
+- ⚖️ **Sprint 5** — Evaluación y Cálculo (en curso, 2026-07-21)
+  - `periodo_validez_anios` integrado en `CalculadorService` ✅
+  - Asignación de evaluadores (backend) ✅ — modelo `AsignacionEvaluador`,
+    `AsignacionesController`, gate en `EvaluacionesController::crear`
+  - Verificación completa contra requisitos-sistema.md y
+    tablas-evaluacion-convocatorias.md ✅ (2026-07-21) — ver hallazgos abajo
+  - Empate resuelto por decisión manual de comisión (no auto/sorteo) ✅
+  - Pendiente: frontend de asignación (admin), bandeja del evaluador
+    mostrando postulaciones asignadas sin evaluación aún, y UI para que la
+    comisión resuelva empates (`POST .../resultados/desempatar` ya existe)
+
+### 🔎 Hallazgos de la verificación contra spec (2026-07-21)
+
+- **Bug de seguridad corregido:** `PATCH /postulaciones/{id}/estado` no tenía
+  `authorize()` — cualquier postulante podía marcar cualquier postulación
+  como ganadora/rechazada. Corregido (`postulaciones.ver_todas`).
+- **Bug de datos corregido:** `puntaje_total_max` de Anexo 1 estaba en 107.0
+  (suma sin tope) en vez de 100.0 (con tope de sub-rubro, verificado en
+  requisitos-sistema.md §7). Corregido en `AnexosSeeder`.
+- **Empate:** el código decía "sorteo" pero no había aleatoriedad real (solo
+  orden de inserción en BD). Rediseñado: los empates en posición
+  ganador/reserva quedan `empate_pendiente` hasta que la comisión registra el
+  orden manualmente vía `resolverEmpate()` / `POST .../resultados/desempatar`,
+  con auditoría de quién y cuándo. `publicar()` bloquea si quedan empates
+  pendientes.
+- **Anexo 4.1 — discrepancia sin resolver:** el PDF fuente detallado (p.63)
+  topa "Dictado de Clases y Responsabilidad Docente" en 8.0, pero la Ficha
+  4.1 resumen (la que cuadra el total 100.0, y la transcrita en
+  tablas-evaluacion-convocatorias.md) la topa en 9.0. Se mantiene 9.0
+  (comentado en `AnexosSeeder`) — pendiente confirmación escrita del cliente.
+- **`PUNTAJE_MINIMO_APROBATORIO=50` / `MAX_RESERVAS=3`:** confirmados
+  verbalmente por el cliente, no están en los .md — comentado en
+  `ResultadosService` para trazabilidad.
+- **Cross-validación agregada:** `POST /convocatorias` ahora rechaza
+  tipo_proceso/modalidad inconsistentes con la tabla de evaluación elegida.
+- **Bug de infraestructura de tests — RESUELTO 2026-07-21.** `docker-compose.yml`
+  fijaba `DB_CONNECTION=pgsql`/`DB_DATABASE=vocare` como variables de entorno
+  reales del contenedor `api` (duplicando `apps/api/.env`), lo que
+  **sobreescribía en silencio** cualquier config de test — con `sqlite`
+  corrían (y con `RefreshDatabase`, reseteaban) la base de datos real de
+  desarrollo. Decisión: el proyecto usa **PostgreSQL exclusivamente, sin
+  SQLite en ningún punto** (ni siquiera para tests). Solución aplicada:
+  - Se quitó el bloque `DB_*` redundante de `environment:` del servicio `api`
+    en `docker-compose.yml` (ahora depende solo de `.env`, sin duplicarlo).
+  - Se agregó una base de datos Postgres separada `vocare_test` en el mismo
+    contenedor `postgres` (`infra/postgres/init-test-db.sql`, montado en
+    `docker-entrypoint-initdb.d` — se ejecuta solo, en instalaciones nuevas;
+    en el volumen ya existente se creó manualmente una vez).
+  - `phpunit.xml` ahora apunta a `pgsql` / `vocare_test` en vez de sqlite.
+  - `php artisan test` ya corre normal, sin flags extra, aislado de `vocare`.
+  De paso se corrigió una migración (`2026_07_20_...rediseñar_evidencias...`)
+  que tenía un bug latente (drop de columna con FK combinado con drop de
+  índice en el mismo `Schema::table()` — inofensivo en Postgres pero
+  revelado al validar contra Postgres real en la BD de test).
+- **Pendiente de decisión, no bloqueante:** `Indicador` (tabla vacía —
+  TABLA_EQUIVALENCIA sin rangos canónicos seedeados) y `Etapa` (schema sin
+  ningún controller/lógica — el flujo de evaluación multi-etapa del spec no
+  está modelado, todo se calcula como una sola Ficha plana).
 
 ### Sprints pendientes
 
@@ -197,11 +255,13 @@ vocare/
    **RESUELTO (Fase 2-B) en 2026-07-20.**
    - El snapshot se genera en `store()` al crear la convocatoria.
 
-3. **`periodo_validez_anios` no se usa en CalculadorService.**
-   - `sumaConTope()` no valida `fecha_emision` de evidencia contra fecha de
-     convocatoria.
-   - Desbloqueado (modelo rediseñado). Pendiente de integrar en
-     CalculadorService como tarea separada.
+3. ~~**`periodo_validez_anios` no se usa en CalculadorService.**~~
+   **RESUELTO 2026-07-21.**
+   - `evidenciasAprobadasDeVariable()` ahora consulta `postulacion_evidencia`
+     y exige `estado_en_postulacion=aprobada` **y** `vigente=true` (el pivote
+     ya calculaba vigencia al asociar la evidencia, pero el calculador la
+     ignoraba y leía `Evidencia::estado` global en su lugar). Tests en
+     `tests/Feature/Services/CalculadorServiceVigenciaTest.php`.
 
 ## 🧹 Deuda técnica cosmética (no bloqueante)
 
@@ -351,6 +411,7 @@ docker compose exec api php artisan tinker
 | 2026-07-05 | Fix bugs críticos: puntaje_indicador (migración + modelo + controller), volumen expedientes en Docker, roles inconsistentes en router y SPRINTS.md                                                                            | Sprint 3 frontend (CRUD convocatorias)                    |
 | 2026-07-14 | Auditoría de código real contra spec: evidencias no reutilizables (campo `reutilizada` decorativo), snapshot se genera en publicar() no en create(). Decisión: pausar Sprint 4 hasta rediseñar modelo evidencias.             | Diseñar evidencias_maestro + pivote postulacion_evidencia |
 | 2026-07-20 | Fase 1 (diseño) + Fase 2 (implementación) del rediseño de evidencias: migración, modelo PostulacionEvidencia, Evidencia/Expediente/Postulacion actualizados, EvidenciasController reescrito, rutas nuevas. Brecha #1 cerrada. | Sprint 4 — Portal del Postulante                          |
+| 2026-07-21 | Sprint 5: (1) Fix CalculadorService para leer vigencia/aprobación por `postulacion_evidencia` en vez del estado global de Evidencia (brecha #3 cerrada). (2) Asignación de evaluadores: modelo AsignacionEvaluador, AsignacionesController (index/store/destroy), permisos nuevos, gate en `POST /postulaciones/{id}/evaluacion` (evaluador ya no se auto-asigna). 10 tests nuevos, seeders re-corridos en dev. | Frontend de asignación (admin) + bandeja evaluador con asignadas pendientes |
 
 ---
 
