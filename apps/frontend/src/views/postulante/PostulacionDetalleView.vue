@@ -8,9 +8,17 @@ const router = useRouter()
 const id     = route.params.id
 
 const postulacion = ref<any>(null)
+const resultado   = ref<any>(null)
 const loading     = ref(true)
 const sending     = ref(false)
 const error       = ref('')
+
+const resultadoEstadoLabel: Record<string, string> = {
+  ganador: 'Ganador/a', reserva: 'Reserva', no_ganador: 'No ganador/a', desierta: 'Plaza desierta',
+}
+const resultadoEstadoBadge: Record<string, string> = {
+  ganador: 'badge-green', reserva: 'badge-blue', no_ganador: 'badge-gray', desierta: 'badge-red',
+}
 
 onMounted(async () => {
   try {
@@ -18,6 +26,15 @@ onMounted(async () => {
     postulacion.value = data
   } finally {
     loading.value = false
+  }
+
+  // Solo existe una vez publicados los resultados; si no, el backend
+  // responde 404 (NO_PUBLICADOS) — se ignora silenciosamente.
+  try {
+    const { data } = await api.get(`/postulaciones/${id}/resultado`)
+    resultado.value = data
+  } catch {
+    resultado.value = null
   }
 })
 
@@ -93,6 +110,30 @@ async function enviar() {
             </span>
             <span v-else class="badge badge-gray" style="font-size:0.7rem">Borrador — no enviada</span>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Resultado (solo si ya fue publicado) -->
+    <div v-if="resultado" class="card mb-4">
+      <div class="card-header">
+        <h3 class="card-title">Resultado</h3>
+        <span class="badge" :class="resultadoEstadoBadge[resultado.estado] ?? 'badge-gray'">
+          {{ resultadoEstadoLabel[resultado.estado] ?? resultado.estado }}
+        </span>
+      </div>
+      <div class="grid-2" style="padding:1.25rem;gap:1rem">
+        <div>
+          <div class="text-sm text-muted">Puntaje total</div>
+          <div class="font-semibold text-lg">{{ resultado.puntaje_total }}</div>
+        </div>
+        <div>
+          <div class="text-sm text-muted">Posición</div>
+          <div class="font-semibold text-lg">{{ resultado.posicion }}</div>
+        </div>
+        <div style="grid-column:span 2">
+          <div class="text-sm text-muted">Publicado</div>
+          <div class="font-medium">{{ new Date(resultado.publicado_en).toLocaleString('es-PE') }}</div>
         </div>
       </div>
     </div>
