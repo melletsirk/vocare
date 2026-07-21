@@ -100,10 +100,18 @@ class EvaluacionesController extends Controller
     /**
      * GET /api/v1/evaluaciones/{evaluacion}
      * Detalle con todos los puntajes calculados por variable.
+     *
+     * Un evaluador solo puede ver el detalle de su propia evaluación — index()
+     * ya filtraba así por lista, pero show() no aplicaba el mismo filtro por id.
      */
-    public function show(Evaluacion $evaluacion): JsonResponse
+    public function show(Request $request, Evaluacion $evaluacion): JsonResponse
     {
         $this->authorize('evaluaciones.ver');
+
+        $user = $request->user();
+        if ($user->hasRole('evaluador') && $evaluacion->evaluador_id !== $user->id) {
+            abort(403);
+        }
 
         return response()->json(
             $evaluacion->load([
@@ -180,6 +188,14 @@ class EvaluacionesController extends Controller
     {
         $this->authorize('evaluaciones.calificar');
 
+        $user = $request->user();
+        if ($user->hasRole('evaluador') && $evaluacion->evaluador_id !== $user->id) {
+            return response()->json([
+                'message' => 'No puedes recalcular una evaluación que no te fue asignada.',
+                'code'    => 'EVALUADOR_NO_ASIGNADO',
+            ], 403);
+        }
+
         if ($evaluacion->estado === Evaluacion::ESTADO_CERRADA) {
             return response()->json([
                 'message' => 'No se puede recalcular una evaluación cerrada.',
@@ -207,6 +223,14 @@ class EvaluacionesController extends Controller
     public function cerrar(Request $request, Evaluacion $evaluacion): JsonResponse
     {
         $this->authorize('evaluaciones.cerrar');
+
+        $user = $request->user();
+        if ($user->hasRole('evaluador') && $evaluacion->evaluador_id !== $user->id) {
+            return response()->json([
+                'message' => 'No puedes cerrar una evaluación que no te fue asignada.',
+                'code'    => 'EVALUADOR_NO_ASIGNADO',
+            ], 403);
+        }
 
         if ($evaluacion->estado === Evaluacion::ESTADO_CERRADA) {
             return response()->json([
