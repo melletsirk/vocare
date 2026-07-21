@@ -46,7 +46,12 @@ class AnexosSeeder extends Seeder
                 'nombre'           => 'Contratación de Docentes',
                 'tipo_proceso'     => 'contratacion',
                 'modalidad'        => null,
-                'puntaje_total_max' => 107.00,
+                // 107.0 es la suma de los puntaje_max de las 5 variables de
+                // "Investigación y Producción" sin aplicar su tope de sub-rubro
+                // (20.0). Con el tope de dos niveles (ver requisitos-sistema.md
+                // §7) el total real y verificado de la Ficha es 100.0 — igual
+                // a la suma de los puntaje_max_subrubro declarados abajo.
+                'puntaje_total_max' => 100.00,
             ]
         );
 
@@ -257,6 +262,16 @@ class AnexosSeeder extends Seeder
                 ['nombre' => 'Proyectos Curriculares Normativos y de Producción', 'orden' => 1, 'max' => 4.0, 'tipo' => 'SUMA_CON_TOPE', 'validez' => null, 'fuente' => 'Resolución/documento de aprobación'],
                 ['nombre' => 'Comisiones',                                        'orden' => 2, 'max' => 3.0, 'tipo' => 'SUMA_CON_TOPE', 'validez' => null, 'fuente' => 'Resolución/Informe'],
             ]],
+            // ⚠️ DISCREPANCIA SIN RESOLVER (detectada 2026-07-21): la tabla
+            // detallada de indicadores del PDF fuente (RES 9245-CU-2025, p.63)
+            // topa "Dictado de Clases y Responsabilidad Docente" en 8.0, pero
+            // la Ficha 4.1 resumen (la que cuadra el total de 100.0 y la que
+            // está transcrita en tablas-evaluacion-convocatorias.md) la topa
+            // en 9.0. Verificado con dos métodos de extracción independientes
+            // — no es un artefacto de OCR. Se mantiene 9.0 porque es el valor
+            // que reconcilia el total de la ficha; pendiente confirmación
+            // escrita del contacto de normativa del cliente antes de darlo
+            // por definitivo. NO cambiar este valor sin esa confirmación.
             ['nombre' => 'Práctica Docente', 'orden' => 7, 'max' => 12.00, 'variables' => [
                 ['nombre' => 'Dictado de Clases y Responsabilidad Docente', 'orden' => 1, 'max' => 9.0, 'tipo' => 'TABLA_EQUIVALENCIA', 'validez' => null, 'fuente' => 'DATO_INSTITUCIONAL — Centro de Desarrollo Académico'],
                 ['nombre' => 'Orientación y Asesoría a los Estudiantes',    'orden' => 2, 'max' => 3.0, 'tipo' => 'SUMA_CON_TOPE',      'validez' => null, 'fuente' => 'DATO_INSTITUCIONAL — Escuela Profesional'],
