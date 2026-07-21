@@ -6,11 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Convocatoria;
 use App\Models\Resultado;
+use App\Services\CalculadorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class AuditoriaController extends Controller
 {
+    public function __construct(private readonly CalculadorService $calculador) {}
+
     /**
      * GET /api/v1/auditoria
      * Log de auditoría paginado con filtros.
@@ -50,7 +53,7 @@ class AuditoriaController extends Controller
         $this->authorize('reportes.ver');
 
         $resultados = Resultado::where('convocatoria_id', $convocatoria->id)
-            ->with(['plaza', 'postulacion.postulante', 'evaluacion'])
+            ->with(['plaza', 'postulacion.postulante', 'evaluacion.puntajes', 'evaluacion.postulacion.convocatoria'])
             ->orderBy('plaza_id')
             ->orderBy('posicion')
             ->get();
@@ -59,6 +62,9 @@ class AuditoriaController extends Controller
         $plazasCubiertas = $convocatoria->plazas()->where('estado', 'cubierta')->count();
         $plazasDesierta  = $convocatoria->plazas()->where('estado', 'desierta')->count();
 
+        // Ganadores con desglose completo por sub-rubro/variable — para uso
+        // interno/administrativo (evaluador, comisión), nunca expuesto al
+        // postulante (ver requisitos-sistema.md §10).
         $ganadores = $resultados->where('estado', Resultado::ESTADO_GANADOR)->map(function ($r) {
             return [
                 'plaza'          => $r->plaza->only(['facultad', 'departamento', 'asignatura']),
@@ -68,8 +74,12 @@ class AuditoriaController extends Controller
                     'dni'     => $r->postulacion?->postulante?->dni,
                     'puntaje' => $r->puntaje_total,
                 ],
-                'empate_sorteo'  => $r->empate_resuelto_por_sorteo,
+                'empatada'       => $r->empatada,
+                'orden_manual'   => $r->orden_manual,
+                'decidido_por'   => $r->decidido_por,
+                'decidido_en'    => $r->decidido_en,
                 'publicado_en'   => $r->publicado_en,
+                'desglose'       => $r->evaluacion ? $this->calculador->desglosar($r->evaluacion) : null,
             ];
         });
 
