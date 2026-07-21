@@ -16,6 +16,42 @@ class EvaluacionesController extends Controller
     public function __construct(private readonly CalculadorService $calculador) {}
 
     /**
+     * GET /api/v1/evaluaciones
+     * Evaluador: sus evaluaciones asignadas.
+     * Admin: todas (opcionalmente filtradas por convocatoria_id).
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $this->authorize('evaluaciones.ver');
+
+        $user  = $request->user();
+        $query = Evaluacion::with([
+            'postulacion.plaza',
+            'postulacion.convocatoria',
+            'postulacion.postulante',
+            'evaluador',
+        ]);
+
+        if ($user->hasRole('evaluador')) {
+            $query->where('evaluador_id', $user->id);
+        }
+
+        if ($request->filled('convocatoria_id')) {
+            $query->whereHas('postulacion', fn ($q) =>
+                $q->where('convocatoria_id', $request->convocatoria_id)
+            );
+        }
+
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->estado);
+        }
+
+        return response()->json(
+            $query->orderByDesc('created_at')->paginate(20)
+        );
+    }
+
+    /**
      * POST /api/v1/postulaciones/{postulacion}/evaluacion
      * Crea una evaluación y la asigna al evaluador autenticado.
      */
@@ -53,7 +89,8 @@ class EvaluacionesController extends Controller
             $evaluacion->load([
                 'postulacion.plaza',
                 'postulacion.convocatoria',
-                'postulacion.expediente.evidencias.variable',
+                'postulacion.postulante',
+                'postulacion.postulacionEvidencias.evidencia.variable',
                 'evaluador',
                 'puntajes',
             ])
