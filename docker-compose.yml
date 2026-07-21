@@ -22,13 +22,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # DB_* ya no se fija aquí: vivía duplicado con apps/api/.env y, al ser
+    # una variable de entorno real del contenedor, pisaba en silencio el
+    # DB_DATABASE=vocare_test que phpunit.xml intenta usar para los tests
+    # (`php artisan test` terminaba corriendo — y con RefreshDatabase,
+    # reseteando — la base de datos real de desarrollo). apps/api/.env sigue
+    # siendo la fuente de verdad para DB_* en uso normal (mismos valores).
     environment:
-      - DB_CONNECTION=pgsql
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_DATABASE=vocare
-      - DB_USERNAME=vocare
-      - DB_PASSWORD=vocare_secret
       - REDIS_HOST=redis
       - REDIS_PASSWORD=null
       - REDIS_PORT=6379
@@ -100,6 +100,7 @@ services:
       - "5433:5432"  # Host 5433 → Container 5432 (evita conflicto con postgres local)
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./infra/postgres:/docker-entrypoint-initdb.d
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U vocare -d vocare"]
       interval: 5s

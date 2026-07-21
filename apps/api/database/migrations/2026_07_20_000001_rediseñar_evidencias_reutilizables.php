@@ -186,11 +186,25 @@ return new class extends Migration
         });
 
         // ── 6. Eliminar columnas del modelo viejo ─────────────────────────────
+        // Cada operación en su propio Schema::table(): en SQLite, combinar el
+        // drop de un índice compuesto con el drop de la columna con foreign
+        // key (expediente_id) en un solo blueprint hace que el rebuild nativo
+        // de tabla de SQLite falle ("unknown column in foreign key
+        // definition"). Separarlas evita el problema y funciona igual en
+        // PostgreSQL.
         Schema::table('evidencias', function (Blueprint $table) {
-            // Primero eliminamos el índice compuesto que incluía expediente_id
             $table->dropIndex(['expediente_id', 'estado']);
+        });
 
+        Schema::table('evidencias', function (Blueprint $table) {
+            $table->dropForeign(['expediente_id']);
+        });
+
+        Schema::table('evidencias', function (Blueprint $table) {
             $table->dropColumn('expediente_id');
+        });
+
+        Schema::table('evidencias', function (Blueprint $table) {
             $table->dropColumn('reutilizada');
         });
 

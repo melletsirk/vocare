@@ -23,8 +23,18 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
-        <env name="DB_CONNECTION" value="sqlite"/>
-        <env name="DB_DATABASE" value=":memory:"/>
+        <!-- El proyecto usa PostgreSQL exclusivamente, sin excepción para
+             tests (SQLite queda descartado: divergía de sintaxis/constraints
+             reales de Postgres y ya causó una migración incompatible). Los
+             tests corren contra una base de datos Postgres SEPARADA de la de
+             desarrollo (vocare_test vs vocare) en el mismo contenedor
+             `postgres`, provista por infra/postgres/init-test-db.sql. -->
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_HOST" value="postgres"/>
+        <env name="DB_PORT" value="5432"/>
+        <env name="DB_DATABASE" value="vocare_test"/>
+        <env name="DB_USERNAME" value="vocare"/>
+        <env name="DB_PASSWORD" value="vocare_secret"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
