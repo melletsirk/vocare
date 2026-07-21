@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Convocatoria;
 use App\Models\Plaza;
+use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -40,6 +41,8 @@ class PlazasController extends Controller
 
         $plaza = $convocatoria->plazas()->create($data);
 
+        AuditService::log('plaza.creada', $plaza, [], $plaza->toArray());
+
         return response()->json($plaza, 201);
     }
 
@@ -70,7 +73,10 @@ class PlazasController extends Controller
             'estado'                 => ['sometimes', 'in:activa,cubierta,desierta'],
         ]);
 
+        $old = $plaza->toArray();
         $plaza->update($data);
+
+        AuditService::log('plaza.actualizada', $plaza, $old, $plaza->fresh()->toArray());
 
         return response()->json($plaza->fresh());
     }

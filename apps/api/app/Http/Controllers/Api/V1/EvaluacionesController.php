@@ -132,6 +132,10 @@ class EvaluacionesController extends Controller
             'tabla_equivalencia' => ['nullable', 'array'], // Tabla del indicador
         ]);
 
+        $puntajeAnterior = Puntaje::where('evaluacion_id', $evaluacion->id)
+            ->where('variable_id', $data['variable_id'])
+            ->first()?->toArray() ?? [];
+
         $puntaje = Puntaje::updateOrCreate(
             [
                 'evaluacion_id' => $evaluacion->id,
@@ -149,6 +153,8 @@ class EvaluacionesController extends Controller
                 ],
             ]
         );
+
+        AuditService::log('evaluacion.puntaje_manual_guardado', $evaluacion, $puntajeAnterior, $puntaje->fresh()->toArray());
 
         return response()->json($puntaje, 201);
     }
