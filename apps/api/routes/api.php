@@ -4,13 +4,18 @@ use App\Http\Controllers\Api\V1\AsignacionesController;
 use App\Http\Controllers\Api\V1\AuditoriaController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ConvocatoriasController;
+use App\Http\Controllers\Api\V1\EtapasController;
 use App\Http\Controllers\Api\V1\EvaluacionesController;
 use App\Http\Controllers\Api\V1\EvidenciasController;
+use App\Http\Controllers\Api\V1\IndicadoresController;
 use App\Http\Controllers\Api\V1\PlazasController;
+use App\Http\Controllers\Api\V1\PostulacionEtapasController;
 use App\Http\Controllers\Api\V1\PostulacionesController;
 use App\Http\Controllers\Api\V1\ResultadosController;
+use App\Http\Controllers\Api\V1\RubrosController;
 use App\Http\Controllers\Api\V1\TablasEvaluacionController;
 use App\Http\Controllers\Api\V1\UsersController;
+use App\Http\Controllers\Api\V1\VariablesController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -53,11 +58,41 @@ Route::prefix('v1')->group(function () {
         Route::get('roles', [UsersController::class, 'roles'])->name('roles.index');
 
         // -------------------------------------------------------------------------
-        // Tablas de Evaluación (Anexos)
+        // Tablas de Evaluación (Anexos) — CRUD admin con fork por versión
         // -------------------------------------------------------------------------
         Route::prefix('tablas-evaluacion')->group(function () {
             Route::get('/', [TablasEvaluacionController::class, 'index'])->name('tablas.index');
+            Route::post('/', [TablasEvaluacionController::class, 'store'])->name('tablas.store');
             Route::get('{tablaEvaluacion}', [TablasEvaluacionController::class, 'show'])->name('tablas.show');
+            Route::patch('{tablaEvaluacion}', [TablasEvaluacionController::class, 'update'])->name('tablas.update');
+            Route::delete('{tablaEvaluacion}', [TablasEvaluacionController::class, 'destroy'])->name('tablas.destroy');
+            Route::post('{tablaEvaluacion}/activar', [TablasEvaluacionController::class, 'activar'])->name('tablas.activar');
+
+            // Rubros y Etapas (plantilla) anidados
+            Route::post('{tablaEvaluacion}/rubros', [RubrosController::class, 'store'])->name('rubros.store');
+            Route::post('{tablaEvaluacion}/etapas', [EtapasController::class, 'store'])->name('etapas.store');
+        });
+
+        Route::prefix('rubros')->group(function () {
+            Route::patch('{rubro}', [RubrosController::class, 'update'])->name('rubros.update');
+            Route::delete('{rubro}', [RubrosController::class, 'destroy'])->name('rubros.destroy');
+            Route::post('{rubro}/variables', [VariablesController::class, 'store'])->name('variables.store');
+        });
+
+        Route::prefix('variables')->group(function () {
+            Route::patch('{variable}', [VariablesController::class, 'update'])->name('variables.update');
+            Route::delete('{variable}', [VariablesController::class, 'destroy'])->name('variables.destroy');
+            Route::post('{variable}/indicadores', [IndicadoresController::class, 'store'])->name('indicadores.store');
+        });
+
+        Route::prefix('indicadores')->group(function () {
+            Route::patch('{indicador}', [IndicadoresController::class, 'update'])->name('indicadores.update');
+            Route::delete('{indicador}', [IndicadoresController::class, 'destroy'])->name('indicadores.destroy');
+        });
+
+        Route::prefix('etapas')->group(function () {
+            Route::patch('{etapa}', [EtapasController::class, 'update'])->name('etapas.update');
+            Route::delete('{etapa}', [EtapasController::class, 'destroy'])->name('etapas.destroy');
         });
 
         // -------------------------------------------------------------------------
@@ -116,9 +151,14 @@ Route::prefix('v1')->group(function () {
             // Evaluación
             Route::post('{postulacion}/evaluacion', [EvaluacionesController::class, 'crear'])->name('evaluaciones.crear');
 
+            // Etapas instanciadas para esta postulación (Clase Magistral, etc.)
+            Route::get('{postulacion}/etapas', [PostulacionEtapasController::class, 'index'])->name('postulacion_etapas.index');
+
             // Resultado propio (postulante)
             Route::get('{postulacion}/resultado', [ResultadosController::class, 'miResultado'])->name('resultados.propio');
         });
+
+        Route::patch('postulacion-etapas/{postulacionEtapa}', [PostulacionEtapasController::class, 'update'])->name('postulacion_etapas.update');
 
         // -------------------------------------------------------------------------
         // Evidencias individuales

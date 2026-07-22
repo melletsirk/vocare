@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Convocatoria;
 use App\Models\Expediente;
 use App\Models\Postulacion;
+use App\Models\PostulacionEtapa;
 use App\Services\AuditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -84,6 +85,17 @@ class PostulacionesController extends Controller
             'estado'         => 'en_preparacion',
             'total_bytes'    => 0,
         ]);
+
+        // Instanciar postulacion_etapa desde la plantilla del anexo — todas
+        // pendientes; las de evento en vivo (Clase Magistral, etc.) quedan
+        // así hasta que el evento ocurra y se transcriba el resultado.
+        foreach ($convocatoria->tablaEvaluacion->etapas as $etapa) {
+            PostulacionEtapa::create([
+                'postulacion_id' => $postulacion->id,
+                'etapa_id'       => $etapa->id,
+                'estado'         => PostulacionEtapa::ESTADO_PENDIENTE,
+            ]);
+        }
 
         AuditService::log('postulacion.creada', $postulacion, [], $postulacion->toArray());
 

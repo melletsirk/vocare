@@ -55,6 +55,10 @@ class AsignacionesController extends Controller
         $data = $request->validate([
             'postulacion_id' => ['required', 'exists:postulaciones,id'],
             'evaluador_id'   => ['required', 'exists:users,id'],
+            // etapa_id null = asignado a toda la postulación. Un valor
+            // específico = jurado de esa etapa únicamente (ej. Clase
+            // Magistral con jurado distinto a quien revisó documentos).
+            'etapa_id'       => ['nullable', 'exists:etapas,id'],
             'tipo'           => ['nullable', Rule::in([
                 AsignacionEvaluador::TIPO_EVALUADOR,
                 AsignacionEvaluador::TIPO_COMISION,
@@ -81,11 +85,12 @@ class AsignacionesController extends Controller
 
         $yaAsignado = AsignacionEvaluador::where('postulacion_id', $data['postulacion_id'])
             ->where('evaluador_id', $data['evaluador_id'])
+            ->where('etapa_id', $data['etapa_id'] ?? null)
             ->exists();
 
         if ($yaAsignado) {
             return response()->json([
-                'message' => 'Este evaluador ya está asignado a esta postulación.',
+                'message' => 'Este evaluador ya está asignado a esta postulación (o etapa).',
                 'code'    => 'YA_ASIGNADO',
             ], 422);
         }
@@ -94,6 +99,7 @@ class AsignacionesController extends Controller
             'convocatoria_id' => $convocatoria->id,
             'postulacion_id'  => $data['postulacion_id'],
             'evaluador_id'    => $data['evaluador_id'],
+            'etapa_id'        => $data['etapa_id'] ?? null,
             'tipo'            => $data['tipo'] ?? AsignacionEvaluador::TIPO_EVALUADOR,
         ]);
 
