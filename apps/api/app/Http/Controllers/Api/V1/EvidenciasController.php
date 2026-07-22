@@ -216,7 +216,11 @@ class EvidenciasController extends Controller
     // ──────────────────────────────────────────────────────────────────────────
 
     /**
-     * Descarga el archivo original. Solo el postulante dueño o usuarios con
+     * Sirve el archivo inline (Content-Disposition: inline), nunca forzando
+     * descarga — el evaluador revisa el documento embebido en la pantalla de
+     * calificación (design.md: "documento visible inline, nunca forzar
+     * descarga"). ?descargar=1 sirve como adjunto para quien sí quiera
+     * bajarlo explícitamente. Solo el postulante dueño o usuarios con
      * permiso de ver todas las evidencias.
      */
     public function descargar(Request $request, Evidencia $evidencia): \Symfony\Component\HttpFoundation\StreamedResponse
@@ -231,9 +235,14 @@ class EvidenciasController extends Controller
             abort(404, 'Archivo no encontrado en el servidor.');
         }
 
-        return Storage::disk('local')->download(
+        if ($request->boolean('descargar')) {
+            return Storage::disk('local')->download($evidencia->ruta_archivo, $evidencia->nombre_original);
+        }
+
+        return Storage::disk('local')->response(
             $evidencia->ruta_archivo,
-            $evidencia->nombre_original
+            $evidencia->nombre_original,
+            ['Content-Type' => $evidencia->mime_type]
         );
     }
 
