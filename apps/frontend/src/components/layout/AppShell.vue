@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import { computed, h, defineComponent } from 'vue'
+import { computed, h, defineComponent, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const auth   = useAuthStore()
 const route  = useRoute()
 const router = useRouter()
+
+// Sidebar (hamburguesa) — colapsada por default en viewports angostos;
+// en desktop el CSS la mantiene siempre visible sin importar este estado.
+const sidebarOpen = ref(false)
+watch(() => route.path, () => { sidebarOpen.value = false })
 
 // ── Íconos SVG inline ───────────────────────────────────────────────────────
 const ICONS: Record<string, string> = {
@@ -16,6 +21,7 @@ const ICONS: Record<string, string> = {
   activity:      '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
   users:         '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   logout:        '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+  menu:          '<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>',
 }
 
 const NavIcon = defineComponent({
@@ -82,8 +88,11 @@ async function handleLogout() {
 
 <template>
   <div class="app-shell">
-    <!-- ── Sidebar ──────────────────────────────────────────────── -->
-    <aside class="sidebar">
+    <!-- Backdrop — solo visible/activo en viewports angostos con la sidebar abierta -->
+    <div class="sidebar-backdrop" :class="{ open: sidebarOpen }" @click="sidebarOpen = false"></div>
+
+    <!-- ── Sidebar (hamburguesa en mobile, siempre visible en desktop) ──── -->
+    <aside class="sidebar" :class="{ open: sidebarOpen }">
       <div class="sidebar-logo">
         <div class="sidebar-logo-mark">V</div>
         <div>
@@ -121,8 +130,13 @@ async function handleLogout() {
     <!-- ── Main content ──────────────────────────────────────────── -->
     <main class="main-content">
       <header class="topbar">
-        <div style="font-size:1rem;font-weight:600;color:var(--clr-gray-800)">
-          Vocare — Sistema de Convocatorias
+        <div class="flex items-center gap-3">
+          <button class="hamburger-btn" aria-label="Abrir menú" @click="sidebarOpen = !sidebarOpen">
+            <NavIcon name="menu" />
+          </button>
+          <div style="font-size:1rem;font-weight:600;color:var(--clr-gray-800)">
+            Vocare — Sistema de Convocatorias
+          </div>
         </div>
         <span class="badge badge-blue">{{ ROL_LABEL[auth.rol ?? ''] ?? auth.rol }}</span>
       </header>

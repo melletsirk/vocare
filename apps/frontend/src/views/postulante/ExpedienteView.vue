@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 
@@ -10,17 +10,42 @@ const id     = route.params.id  // postulacion id
 const postulacion = ref<any>(null)
 const evidencias  = ref<any[]>([])
 const loading     = ref(true)
-const uploading   = ref(false)
-const uploadError = ref('')
 
-const fileInput    = ref<HTMLInputElement | null>(null)
-const selectedVar  = ref<string>('')
-const fechaEmision = ref<string>('')
+// ── Checklist: una fila por variable (requisito) configurado, agrupado
+// por rubro — nunca un dropdown genérico donde el postulante deba adivinar
+// a qué requisito corresponde cada archivo. ─────────────────────────────────
+const checklist = computed(() => {
+  const rubros = postulacion.value?.convocatoria?.tabla_snapshot?.rubros ?? []
+  return rubros.map((rubro: any) => ({
+    nombre: rubro.nombre,
+    variables: rubro.variables.map((variable: any) => ({
+      variable,
+      evidencias: evidencias.value.filter((ev: any) => ev.evidencia?.variable_id === variable.id),
+    })),
+  }))
+})
 
-// Modal Reutilizar
-const showReutilizarModal  = ref(false)
-const misEvidencias        = ref<any[]>([])
-const loadingEvidencias    = ref(false)
+// Estado por-fila del formulario de subida/reutilización, indexado por variable_id
+const formPorVariable = reactive<Record<number, {
+  expandido: 'subir' | 'reutilizar' | null
+  fechaEmision: string
+  subiendo: boolean
+  error: string
+  misEvidencias: any[]
+  cargandoReutilizables: boolean
+}>>({})
+
+function estadoDe(variableId: number) {
+  if (!formPorVariable[variableId]) {
+    formPorVariable[variableId] = {
+      expandido: null, fechaEmision: '', subiendo: false, error: '',
+      misEvidencias: [], cargandoReutilizables: false,
+    }
+  }
+  return formPorVariable[variableId]
+}
+
+const fileInputs = ref<Record<number, HTMLInputElement | null>>({})
 
 onMounted(cargar)
 
@@ -42,52 +67,69 @@ const estadoEvidencia: Record<string, string> = {
   pendiente: 'badge-yellow', aprobada: 'badge-green',
   observada: 'badge-indigo', rechazada: 'badge-red',
 }
+const estadoLabel: Record<string, string> = {
+  pendiente: 'Subido — en revisión', aprobada: 'Aprobado',
+  observada: 'Observado', rechazada: 'Rechazado',
+}
 
-async function subirEvidencia() {
-  if (!fileInput.value?.files?.[0] || !selectedVar.value) {
-    uploadError.value = 'Selecciona un archivo y la variable correspondiente.'
+function abrirSubir(variableId: number) {
+  const f = estadoDe(variableId)
+  f.expandido = f.expandido === 'subir' ? null : 'subir'
+  f.error = ''
+}
+
+async function abrirReutilizar(variableId: number) {
+  const f = estadoDe(variableId)
+  f.expandido = f.expandido === 'reutilizar' ? null : 'reutilizar'
+  if (f.expandido !== 'reutilizar') return
+
+  f.cargandoReutilizables = true
+  try {
+    const { data } = await api.get('/me/evidencias')
+    const asociadasIds = evidencias.value.map((e: any) => e.evidencia_id)
+    // Solo documentos que ya corresponden a ESTE requisito — reutilizar no
+    // reasigna un documento a un requisito distinto del que ya tenía.
+    f.misEvidencias = data.filter((e: any) => e.variable_id === variableId && !asociadasIds.includes(e.id))
+  } finally {
+    f.cargandoReutilizables = false
+  }
+}
+
+async function subirEvidencia(variableId: number) {
+  const f = estadoDe(variableId)
+  const input = fileInputs.value[variableId]
+
+  if (!input?.files?.[0]) {
+    f.error = 'Selecciona un archivo.'
     return
   }
-  uploadError.value = ''
-  uploading.value   = true
+  f.error = ''
+  f.subiendo = true
+
   const formData = new FormData()
-  formData.append('archivo', fileInput.value.files[0])
-  formData.append('variable_id', selectedVar.value)
-  if (fechaEmision.value) formData.append('fecha_emision', fechaEmision.value)
+  formData.append('archivo', input.files[0])
+  formData.append('variable_id', String(variableId))
+  if (f.fechaEmision) formData.append('fecha_emision', f.fechaEmision)
 
   try {
     await api.post(`/postulaciones/${id}/evidencias`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
-    selectedVar.value  = ''
-    fechaEmision.value = ''
-    if (fileInput.value) fileInput.value.value = ''
+    f.expandido = null
+    f.fechaEmision = ''
+    if (input) input.value = ''
     await cargar()
   } catch (e: any) {
-    uploadError.value = e.response?.data?.message || 'Error al subir el archivo.'
+    f.error = e.response?.data?.message || 'Error al subir el archivo.'
   } finally {
-    uploading.value = false
+    f.subiendo = false
   }
 }
 
-async function abrirReutilizar() {
-  showReutilizarModal.value = true
-  loadingEvidencias.value   = true
-  try {
-    const { data } = await api.get('/me/evidencias')
-    const asociadasIds = evidencias.value.map((e: any) => e.evidencia_id)
-    misEvidencias.value = data.filter((e: any) => !asociadasIds.includes(e.id))
-  } catch (e) {
-    console.error(e)
-  } finally {
-    loadingEvidencias.value = false
-  }
-}
-
-async function reutilizarEvidencia(evidenciaId: number) {
+async function reutilizarEvidencia(variableId: number, evidenciaId: number) {
   try {
     await api.post(`/postulaciones/${id}/evidencias/reutilizar`, { evidencia_id: evidenciaId })
-    showReutilizarModal.value = false
+    estadoDe(variableId).expandido = null
     await cargar()
   } catch (e: any) {
     alert(e.response?.data?.message || 'Error al reutilizar evidencia')
@@ -101,7 +143,7 @@ function formatBytes(b: number) {
 }
 
 // Solo cuenta archivos únicos (las evidencias reutilizadas no ocupan espacio nuevo)
-const totalBytes = () => {
+const totalBytes = computed(() => {
   const unicas = new Map<number, number>()
   evidencias.value.forEach((ev: any) => {
     if (ev.evidencia) unicas.set(ev.evidencia_id, ev.evidencia.tamano_bytes)
@@ -109,8 +151,8 @@ const totalBytes = () => {
   let sum = 0
   unicas.forEach(val => { sum += val })
   return sum
-}
-const pctUsed = () => Math.min((totalBytes() / 209715200) * 100, 100).toFixed(1)
+})
+const pctUsed = computed(() => Math.min((totalBytes.value / 209715200) * 100, 100).toFixed(1))
 </script>
 
 <template>
@@ -130,168 +172,105 @@ const pctUsed = () => Math.min((totalBytes() / 209715200) * 100, 100).toFixed(1)
     <div class="card mb-4">
       <div class="flex justify-between items-center mb-2">
         <span class="text-sm font-medium">Almacenamiento usado (archivos únicos)</span>
-        <span class="text-sm text-muted">{{ formatBytes(totalBytes()) }} / 200 MB</span>
+        <span class="text-sm text-muted">{{ formatBytes(totalBytes) }} / 200 MB</span>
       </div>
       <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: pctUsed() + '%' }"></div>
+        <div class="progress-fill" :style="{ width: pctUsed + '%' }"></div>
       </div>
-      <div class="text-xs text-muted mt-1">{{ pctUsed() }}% utilizado</div>
+      <div class="text-xs text-muted mt-1">{{ pctUsed }}% utilizado</div>
     </div>
 
-    <div class="grid-2 gap-3 mb-4">
-      <!-- Subir evidencia nueva -->
-      <div class="card">
-        <div class="card-header">
-          <h3 class="card-title">Subir documento nuevo</h3>
-        </div>
-        <div v-if="uploadError" class="alert alert-error mb-4">{{ uploadError }}</div>
+    <!-- ══ CHECKLIST por requisito configurado — nunca un dropdown genérico ══ -->
+    <div v-for="rubro in checklist" :key="rubro.nombre" class="mb-4">
+      <h3 class="font-semibold mb-2">{{ rubro.nombre }}</h3>
 
-        <div class="form-group mb-3">
-          <label class="form-label">Variable / Indicador <span class="required">*</span></label>
-          <select v-model="selectedVar" class="form-control">
-            <option value="">Seleccionar variable...</option>
-            <optgroup
-              v-for="rubro in postulacion?.convocatoria?.tabla_snapshot?.rubros"
-              :label="rubro.nombre"
-            >
-              <option v-for="v in rubro.variables" :key="v.id" :value="v.id">{{ v.nombre }}</option>
-            </optgroup>
-          </select>
-        </div>
-        <div class="form-group mb-3">
-          <label class="form-label">Fecha de emisión del documento</label>
-          <input v-model="fechaEmision" type="date" class="form-control" />
-        </div>
-        <div class="form-group mb-4">
-          <label class="form-label">Archivo <span class="required">*</span></label>
-          <input ref="fileInput" type="file" class="form-control" accept=".pdf,.jpg,.jpeg,.png" />
-          <span class="form-hint">PDF, JPG o PNG — máximo 10 MB por archivo</span>
-        </div>
-
-        <button class="btn btn-primary" :disabled="uploading" @click="subirEvidencia">
-          <span v-if="uploading" class="spinner"></span>
-          {{ uploading ? 'Subiendo...' : 'Subir documento' }}
-        </button>
-      </div>
-
-      <!-- Reutilizar evidencia existente -->
-      <div class="card" style="display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:200px">
-        <h3 class="card-title mb-2">Reutilizar documento existente</h3>
-        <p class="text-sm text-muted mb-4">
-          ¿Ya subiste este archivo en otra postulación? Puedes reutilizarlo sin
-          consumir espacio adicional ni requerir nueva validación.
-        </p>
-        <button class="btn btn-secondary" @click="abrirReutilizar">
-          Explorar mis documentos
-        </button>
-      </div>
-    </div>
-
-    <!-- Lista de evidencias asociadas -->
-    <div class="card" style="padding:0">
-      <div class="card-header" style="padding:1rem 1.25rem">
-        <h3 class="card-title">Documentos en este expediente ({{ evidencias.length }})</h3>
-      </div>
-
-      <div v-if="evidencias.length === 0">
-        <div class="empty-state">
-          <h3>Sin documentos</h3>
-          <p>Aún no has cargado ningún documento a este expediente.</p>
-        </div>
-      </div>
-
-      <div v-else class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Variable</th>
-              <th>Archivo</th>
-              <th>Tamaño</th>
-              <th>Emisión</th>
-              <th>Vigencia</th>
-              <th>Estado</th>
-              <th>Observación</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="ev in evidencias" :key="ev.id">
-              <td class="text-sm">{{ ev.evidencia?.variable?.nombre ?? '—' }}</td>
-              <td>
-                <span class="font-medium text-sm">{{ ev.evidencia?.nombre_original }}</span>
-              </td>
-              <td class="text-sm text-muted">{{ formatBytes(ev.evidencia?.tamano_bytes || 0) }}</td>
-              <td class="text-sm text-muted">{{ ev.evidencia?.fecha_emision ?? '—' }}</td>
-              <td>
-                <span v-if="ev.vigente === true"  class="badge badge-green">Vigente</span>
-                <span v-else-if="ev.vigente === false" class="badge badge-red">
-                  Vencida<br><span class="text-xs">({{ ev.fecha_vencimiento }})</span>
-                </span>
-                <span v-else class="badge badge-gray">Sin fecha</span>
-              </td>
-              <td>
-                <span class="badge" :class="estadoEvidencia[ev.estado_en_postulacion]">
-                  {{ ev.estado_en_postulacion }}
-                </span>
-              </td>
-              <td class="text-sm" style="max-width:200px">
-                <span
-                  v-if="ev.estado_en_postulacion === 'observada' && ev.comentario_postulacion"
-                  class="text-muted"
-                >{{ ev.comentario_postulacion }}</span>
-                <span v-else class="text-muted">—</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- Modal Reutilizar -->
-    <div v-if="showReutilizarModal" class="modal-overlay" @click.self="showReutilizarModal = false">
-      <div class="modal" style="max-width:800px;width:100%">
-        <div class="modal-header">
-          <h3 class="card-title">Reutilizar documento existente</h3>
-          <button class="btn btn-ghost btn-icon" @click="showReutilizarModal = false">✕</button>
-        </div>
-        <div class="modal-body" style="max-height:60vh;overflow-y:auto">
-          <div v-if="loadingEvidencias" class="loading-center">
-            <span class="spinner"></span> Cargando tus documentos...
+      <div v-for="item in rubro.variables" :key="item.variable.id" class="card mb-3">
+        <!-- fuente='etapa' (Clase Magistral, etc.) — no requiere documento -->
+        <div v-if="item.variable.fuente === 'etapa'" class="flex justify-between items-center">
+          <div>
+            <p class="font-medium">{{ item.variable.nombre }}</p>
+            <p class="text-xs text-muted">Se evalúa mediante evento presencial — no requiere documento.</p>
           </div>
-          <div v-else-if="misEvidencias.length === 0" class="empty-state">
-            <h3>Sin documentos disponibles</h3>
-            <p>No tienes documentos reutilizables o todos ya están asociados a esta postulación.</p>
-          </div>
-          <div v-else class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Archivo</th>
-                  <th>Variable original</th>
-                  <th>Fecha emisión</th>
-                  <th>Estado</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="m in misEvidencias" :key="m.id">
-                  <td class="font-medium text-sm">{{ m.nombre_original }}</td>
-                  <td class="text-sm text-muted">{{ m.variable?.nombre ?? '—' }}</td>
-                  <td class="text-sm text-muted">{{ m.fecha_emision || '—' }}</td>
-                  <td>
-                    <span class="badge" :class="estadoEvidencia[m.estado] || 'badge-gray'">
-                      {{ m.estado }}
-                    </span>
-                  </td>
-                  <td>
-                    <button class="btn btn-primary btn-sm" @click="reutilizarEvidencia(m.id)">
-                      Reutilizar
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          <span class="badge badge-gray">ℹ️ Evento presencial</span>
         </div>
+
+        <!-- Requisito basado en documento -->
+        <template v-else>
+          <div class="flex justify-between items-center mb-2">
+            <div>
+              <p class="font-medium">{{ item.variable.nombre }}</p>
+              <p class="text-xs text-muted">
+                tope {{ item.variable.puntaje_max }} pts
+                <span v-if="item.variable.periodo_validez_anios"> · válido {{ item.variable.periodo_validez_anios }} años</span>
+              </p>
+            </div>
+            <span v-if="item.evidencias.length === 0" class="badge badge-gray">Sin documentos</span>
+          </div>
+
+          <!-- Estado visible sin clic adicional, por cada documento subido -->
+          <div v-for="ev in item.evidencias" :key="ev.id" class="flex justify-between items-center mb-2" style="padding:0.5rem;border:1px solid var(--surface-border);border-radius:6px">
+            <div style="min-width:0">
+              <p class="font-medium text-sm truncate">📄 {{ ev.evidencia?.nombre_original }}</p>
+              <p class="text-xs text-muted">
+                {{ formatBytes(ev.evidencia?.tamano_bytes || 0) }}
+                <span v-if="ev.vigente === true"> · vigente</span>
+                <span v-else-if="ev.vigente === false"> · vencida ({{ ev.fecha_vencimiento }})</span>
+              </p>
+            </div>
+            <div class="text-right" style="flex-shrink:0">
+              <span class="badge" :class="estadoEvidencia[ev.estado_en_postulacion]">{{ estadoLabel[ev.estado_en_postulacion] }}</span>
+              <p v-if="ev.estado_en_postulacion === 'observada' && ev.comentario_postulacion" class="text-xs text-muted mt-1" style="max-width:220px">
+                {{ ev.comentario_postulacion }}
+              </p>
+            </div>
+          </div>
+
+          <!-- Acciones — subir/reutilizar siempre saben a qué requisito pertenecen -->
+          <div class="flex gap-2 mt-2">
+            <button class="btn btn-ghost btn-sm" @click="abrirSubir(item.variable.id)">
+              {{ item.evidencias.length ? '+ Agregar otro documento' : '+ Subir documento' }}
+            </button>
+            <button class="btn btn-ghost btn-sm" @click="abrirReutilizar(item.variable.id)">
+              ↺ Reutilizar existente
+            </button>
+          </div>
+
+          <!-- Subir — inline, sin selector de variable -->
+          <div v-if="estadoDe(item.variable.id).expandido === 'subir'" class="mt-3" style="padding-top:0.75rem;border-top:1px solid var(--surface-border)">
+            <div v-if="estadoDe(item.variable.id).error" class="alert alert-error mb-3">{{ estadoDe(item.variable.id).error }}</div>
+            <div class="grid-2 mb-3">
+              <div class="form-group">
+                <label class="form-label text-xs">Archivo</label>
+                <input :ref="(el) => fileInputs[item.variable.id] = el as HTMLInputElement" type="file" class="form-control" accept=".pdf,.jpg,.jpeg,.png" />
+              </div>
+              <div class="form-group">
+                <label class="form-label text-xs">Fecha de emisión</label>
+                <input v-model="estadoDe(item.variable.id).fechaEmision" type="date" class="form-control" />
+              </div>
+            </div>
+            <span class="form-hint mb-2" style="display:block">PDF, JPG o PNG — máximo 10 MB</span>
+            <button class="btn btn-primary btn-sm" :disabled="estadoDe(item.variable.id).subiendo" @click="subirEvidencia(item.variable.id)">
+              {{ estadoDe(item.variable.id).subiendo ? 'Subiendo...' : 'Subir' }}
+            </button>
+          </div>
+
+          <!-- Reutilizar — ya filtrado a este requisito -->
+          <div v-if="estadoDe(item.variable.id).expandido === 'reutilizar'" class="mt-3" style="padding-top:0.75rem;border-top:1px solid var(--surface-border)">
+            <div v-if="estadoDe(item.variable.id).cargandoReutilizables" class="text-sm text-muted">Cargando...</div>
+            <div v-else-if="estadoDe(item.variable.id).misEvidencias.length === 0" class="text-sm text-muted">
+              No tienes documentos previos reutilizables para este requisito.
+            </div>
+            <div v-else>
+              <div v-for="m in estadoDe(item.variable.id).misEvidencias" :key="m.id" class="flex justify-between items-center mb-2" style="padding:0.5rem;border:1px solid var(--surface-border);border-radius:6px">
+                <div>
+                  <p class="font-medium text-sm">{{ m.nombre_original }}</p>
+                  <p class="text-xs text-muted">{{ m.fecha_emision || 'sin fecha' }} · <span class="badge" :class="estadoEvidencia[m.estado]" style="font-size:0.65rem">{{ m.estado }}</span></p>
+                </div>
+                <button class="btn btn-primary btn-sm" @click="reutilizarEvidencia(item.variable.id, m.id)">Usar este</button>
+              </div>
+            </div>
+          </div>
+        </template>
       </div>
     </div>
   </div>

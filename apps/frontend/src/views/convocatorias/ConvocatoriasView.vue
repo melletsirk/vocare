@@ -1,15 +1,18 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
 
 const auth   = useAuthStore()
+const route  = useRoute()
 const router = useRouter()
 
 const convocatorias = ref<any[]>([])
 const loading       = ref(true)
-const filtroEstado  = ref('')
+// Permite llegar aquí con un filtro ya aplicado (ej. desde los conteos
+// accionables del Dashboard: /convocatorias?estado=en_proceso).
+const filtroEstado  = ref(typeof route.query.estado === 'string' ? route.query.estado : '')
 
 const estadoLabel: Record<string, string> = {
   borrador: 'Borrador', publicada: 'Publicada',

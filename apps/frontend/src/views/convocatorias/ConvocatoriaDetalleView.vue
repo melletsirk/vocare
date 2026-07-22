@@ -12,11 +12,17 @@ const id     = route.params.id
 const conv    = ref<any>(null)
 const plazas  = ref<any[]>([])
 const loading = ref(true)
-const tab     = ref<'plazas'|'tabla'|'asignaciones'>('plazas')
+const tab     = ref<'plazas'|'tabla'|'postulantes'|'evaluaciones'|'asignaciones'>('plazas')
 const showPlazaModal = ref(false)
 const savingPlaza    = ref(false)
 const publicando     = ref(false)
 const plazaForm = ref({ facultad:'', departamento:'', asignatura:'', modalidad:'', horas_semana:'' })
+
+// Postulantes de esta convocatoria (todas, no solo enviadas)
+const todasPostulaciones = ref<any[]>([])
+
+// Evaluaciones de esta convocatoria
+const evaluacionesConv = ref<any[]>([])
 
 // Asignación de evaluadores
 const postulaciones = ref<any[]>([])
@@ -25,6 +31,14 @@ const evaluadores   = ref<any[]>([])
 const evaluadorElegido = reactive<Record<number, string>>({}) // postulacion_id -> evaluador_id
 const asignando = reactive<Record<number, boolean>>({})
 const quitando   = reactive<Record<number, boolean>>({})
+
+const postulacionEstadoBadge: Record<string, string> = {
+  en_proceso: 'badge-yellow', observada: 'badge-indigo',
+  rechazada: 'badge-red', aprobada_etapa: 'badge-green', ganadora: 'badge-blue',
+}
+const evaluacionEstadoBadge: Record<string, string> = {
+  en_proceso: 'badge-yellow', completada: 'badge-blue', cerrada: 'badge-green',
+}
 
 const estadoBadge: Record<string, string> = {
   borrador:'badge-gray', publicada:'badge-blue',
@@ -51,7 +65,15 @@ async function cargar() {
     conv.value   = cRes.data
     plazas.value = pRes.data
 
-    if (canManage) await cargarAsignaciones()
+    if (canManage) {
+      await cargarAsignaciones()
+      const [postRes, evalRes] = await Promise.all([
+        api.get('/postulaciones', { params: { convocatoria_id: id } }),
+        api.get('/evaluaciones', { params: { convocatoria_id: id } }),
+      ])
+      todasPostulaciones.value = postRes.data.data ?? postRes.data
+      evaluacionesConv.value   = evalRes.data.data ?? evalRes.data
+    }
   } finally {
     loading.value = false
   }
@@ -194,7 +216,9 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
     <!-- Tabs -->
     <div class="flex gap-1 mb-4" style="border-bottom:1px solid var(--surface-border)">
       <button
-        v-for="t in (canManage ? [['plazas','Plazas'],['tabla','Tabla Evaluación'],['asignaciones','Asignaciones']] : [['plazas','Plazas'],['tabla','Tabla Evaluación']])"
+        v-for="t in (canManage
+          ? [['plazas','Plazas'],['tabla','Tabla Evaluación'],['postulantes','Postulantes'],['evaluaciones','Evaluaciones'],['asignaciones','Asignaciones']]
+          : [['plazas','Plazas'],['tabla','Tabla Evaluación']])"
         :key="t[0]"
         class="btn btn-ghost"
         :style="tab === t[0] ? 'border-bottom:2px solid var(--clr-primary-600);border-radius:0;color:var(--clr-primary-700);font-weight:600' : ''"
@@ -281,6 +305,76 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
         <div class="empty-state">
           <h3>Sin tabla de evaluación</h3>
           <p>Publica la convocatoria para generar el snapshot inmutable.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Postulantes -->
+    <div v-else-if="tab === 'postulantes'">
+      <div v-if="todasPostulaciones.length === 0" class="card">
+        <div class="empty-state">
+          <h3>Sin postulantes todavía</h3>
+        </div>
+      </div>
+      <div v-else class="card" style="padding:0">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Postulante</th>
+                <th>Plaza</th>
+                <th>Enviada</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="p in todasPostulaciones" :key="p.id">
+                <td class="font-medium">{{ p.postulante?.name ?? p.user_id }}</td>
+                <td class="text-sm">{{ p.plaza?.asignatura ?? '—' }}</td>
+                <td class="text-sm">
+                  <span v-if="p.fecha_envio">{{ new Date(p.fecha_envio).toLocaleDateString('es-PE') }}</span>
+                  <span v-else class="badge badge-gray" style="font-size:0.7rem">Borrador</span>
+                </td>
+                <td><span class="badge" :class="postulacionEstadoBadge[p.estado] ?? 'badge-gray'">{{ p.estado }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Evaluaciones -->
+    <div v-else-if="tab === 'evaluaciones'">
+      <div v-if="evaluacionesConv.length === 0" class="card">
+        <div class="empty-state">
+          <h3>Sin evaluaciones todavía</h3>
+        </div>
+      </div>
+      <div v-else class="card" style="padding:0">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Postulante</th>
+                <th>Evaluador</th>
+                <th>Puntaje</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="e in evaluacionesConv" :key="e.id">
+                <td class="font-medium">{{ e.postulacion?.postulante?.name ?? '—' }}</td>
+                <td class="text-sm">{{ e.evaluador?.name ?? '—' }}</td>
+                <td>
+                  <span v-if="e.puntaje_total" class="font-semibold" style="color:var(--clr-primary-700)">{{ e.puntaje_total }}</span>
+                  <span v-else class="text-muted">—</span>
+                </td>
+                <td><span class="badge" :class="evaluacionEstadoBadge[e.estado] ?? 'badge-gray'">{{ e.estado }}</span></td>
+                <td><RouterLink :to="`/evaluaciones/${e.id}`" class="btn btn-ghost btn-sm">Ver →</RouterLink></td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

@@ -395,6 +395,49 @@ tbody td { padding: 0.875rem 1rem; font-size: var(--text-sm); vertical-align: mi
 }
 .page-content { padding: 1.5rem; flex: 1; }
 
+/* Hamburger — oculto en desktop, la sidebar ya está siempre visible ahí */
+.hamburger-btn { display: none; }
+
+.sidebar-backdrop { display: none; }
+
+/* Sidebar (hamburguesa) — por debajo del breakpoint la sidebar pasa a ser
+   un overlay oculto por default, con backdrop para cerrar tocando afuera. */
+@media (max-width: 900px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .main-content {
+    margin-left: 0;
+  }
+  .hamburger-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+    border-radius: var(--radius-md);
+    color: var(--clr-gray-600);
+    flex-shrink: 0;
+  }
+  .hamburger-btn:hover { background: var(--clr-gray-100); }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 90;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-fast);
+  }
+  .sidebar-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
 /* ===================================================================
    Page header
 =================================================================== */
