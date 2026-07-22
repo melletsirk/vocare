@@ -66,11 +66,6 @@ class Convocatoria extends Model
         return $this->hasMany(Postulacion::class);
     }
 
-    public function etapas(): HasMany
-    {
-        return $this->hasMany(Etapa::class)->orderBy('orden');
-    }
-
     public function asignaciones(): HasMany
     {
         return $this->hasMany(AsignacionEvaluador::class);
@@ -91,14 +86,16 @@ class Convocatoria extends Model
      */
     public function generarSnapshot(): void
     {
-        $tabla = $this->tablaEvaluacion->load('rubros.variables.indicadores');
+        $tabla = $this->tablaEvaluacion->load('rubros.variables.indicadores', 'etapas');
 
         $this->tabla_snapshot = [
-            'tabla_evaluacion_id' => $tabla->id,
-            'codigo_anexo'        => $tabla->codigo_anexo,
-            'nombre'              => $tabla->nombre,
-            'puntaje_total_max'   => $tabla->puntaje_total_max,
-            'rubros'              => $tabla->rubros->map(fn($rubro) => [
+            'tabla_evaluacion_id'        => $tabla->id,
+            'codigo_anexo'               => $tabla->codigo_anexo,
+            'nombre'                     => $tabla->nombre,
+            'puntaje_total_max'          => $tabla->puntaje_total_max,
+            'puntaje_minimo_aprobatorio' => $tabla->puntaje_minimo_aprobatorio,
+            'minimos_subrubro'           => $tabla->minimos_subrubro,
+            'rubros'                     => $tabla->rubros->map(fn($rubro) => [
                 'id'                  => $rubro->id,
                 'nombre'              => $rubro->nombre,
                 'orden'               => $rubro->orden,
@@ -111,6 +108,8 @@ class Convocatoria extends Model
                     'tipo_calculo'         => $variable->tipo_calculo,
                     'periodo_validez_anios' => $variable->periodo_validez_anios,
                     'fuente_verificacion'  => $variable->fuente_verificacion,
+                    'fuente'               => $variable->fuente,
+                    'etapa_id'             => $variable->etapa_id,
                     'indicadores'          => $variable->indicadores->map(fn($ind) => [
                         'id'                => $ind->id,
                         'nombre'            => $ind->nombre,
@@ -119,6 +118,12 @@ class Convocatoria extends Model
                         'tabla_equivalencia' => $ind->tabla_equivalencia,
                     ])->toArray(),
                 ])->toArray(),
+            ])->toArray(),
+            'etapas' => $tabla->etapas->map(fn($etapa) => [
+                'id'     => $etapa->id,
+                'nombre' => $etapa->nombre,
+                'tipo'   => $etapa->tipo,
+                'orden'  => $etapa->orden,
             ])->toArray(),
         ];
 

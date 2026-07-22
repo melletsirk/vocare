@@ -83,6 +83,11 @@ class Postulacion extends Model
         return $this->hasMany(PostulacionEvidencia::class);
     }
 
+    public function postulacionEtapas(): HasMany
+    {
+        return $this->hasMany(PostulacionEtapa::class);
+    }
+
     /** ¿Ya fue enviada formalmente? */
     public function estaEnviada(): bool
     {

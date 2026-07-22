@@ -110,7 +110,7 @@ class ConvocatoriasController extends Controller
     public function show(Convocatoria $convocatoria): JsonResponse
     {
         return response()->json(
-            $convocatoria->load(['reglamentoVersion', 'tablaEvaluacion.rubros.variables', 'plazas', 'etapas'])
+            $convocatoria->load(['reglamentoVersion', 'tablaEvaluacion.rubros.variables', 'plazas'])
         );
     }
 

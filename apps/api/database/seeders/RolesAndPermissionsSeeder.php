@@ -39,6 +39,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'evaluaciones.cerrar', 'evaluaciones.ver_desglose',
             // Asignación de evaluadores
             'asignaciones.gestionar', 'asignaciones.ver',
+            // CRUD admin de tablas de evaluación (Anexos) y Etapa
+            'tablas_evaluacion.gestionar',
             // Resultados
             'resultados.ver_total_propio', 'resultados.ver_todos',
             'resultados.publicar',

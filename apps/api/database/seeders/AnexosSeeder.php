@@ -21,7 +21,6 @@ class AnexosSeeder extends Seeder
                 'nombre'           => 'TUO Reglamento del Personal Docente Universitario',
                 'fecha_vigencia'   => '2025-06-01',
                 'documento_fuente' => 'Resolución 9245-CU-2025 / TUO-GTH-001',
-                'activo'           => true,
             ]
         );
 
@@ -52,6 +51,12 @@ class AnexosSeeder extends Seeder
                 // §7) el total real y verificado de la Ficha es 100.0 — igual
                 // a la suma de los puntaje_max_subrubro declarados abajo.
                 'puntaje_total_max' => 100.00,
+                // estado='activo': este anexo ya está en uso. Los mínimos
+                // (puntaje_minimo_aprobatorio / minimos_subrubro) quedan sin
+                // fijar a propósito — 55/52/60 + sub-mínimos de "Aptitud
+                // Docente" siguen bloqueados en confirmación del cliente
+                // (ver CONTEXTO.md). No hardcodear aquí hasta que confirme.
+                'estado'           => 'activo',
             ]
         );
 
@@ -111,6 +116,7 @@ class AnexosSeeder extends Seeder
                 'tipo_proceso'     => 'contratacion_jefe_practica',
                 'modalidad'        => null,
                 'puntaje_total_max' => 100.00,
+                'estado'           => 'activo',
             ]
         );
 
@@ -169,6 +175,7 @@ class AnexosSeeder extends Seeder
                 'tipo_proceso'     => 'ingreso_ordinaria',
                 'modalidad'        => 'presencial',
                 'puntaje_total_max' => 100.00,
+                'estado'           => 'activo',
             ]
         );
 
@@ -231,6 +238,7 @@ class AnexosSeeder extends Seeder
                 'tipo_proceso'     => 'ascenso',
                 'modalidad'        => 'presencial',
                 'puntaje_total_max' => 100.00,
+                'estado'           => 'activo',
             ]
         );
 
@@ -300,6 +308,7 @@ class AnexosSeeder extends Seeder
                 'tipo_proceso'     => 'ingreso_ordinaria',
                 'modalidad'        => 'semipresencial_distancia',
                 'puntaje_total_max' => 90.00,
+                'estado'           => 'activo',
             ]
         );
 
@@ -359,6 +368,7 @@ class AnexosSeeder extends Seeder
                 'tipo_proceso'     => 'ascenso',
                 'modalidad'        => 'semipresencial_distancia',
                 'puntaje_total_max' => 101.00,
+                'estado'           => 'activo',
             ]
         );
 

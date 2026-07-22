@@ -13,6 +13,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * previamente a un evaluador o comisión específica." Un evaluador solo puede
  * crear su Evaluacion (POST /postulaciones/{id}/evaluacion) sobre una
  * postulación para la que exista una asignación a su nombre.
+ *
+ * etapa_id NULL = asignado a toda la postulación (compatible con el
+ * comportamiento original). Un valor específico = jurado de esa etapa
+ * únicamente — necesario para Clase Magistral, donde el jurado presencial
+ * puede ser gente distinta de quien revisó documentos.
  */
 class AsignacionEvaluador extends Model
 {
@@ -25,6 +30,7 @@ class AsignacionEvaluador extends Model
         'convocatoria_id',
         'postulacion_id',
         'evaluador_id',
+        'etapa_id',
         'tipo',
     ];
 
@@ -41,5 +47,10 @@ class AsignacionEvaluador extends Model
     public function evaluador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'evaluador_id');
+    }
+
+    public function etapa(): BelongsTo
+    {
+        return $this->belongsTo(Etapa::class);
     }
 }
