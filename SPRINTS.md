@@ -10,14 +10,23 @@ manera eficiente.
 - **Base de datos:** PostgreSQL exclusivamente (migraciones y seeders aplicados 2026-07-20; seeder de roles/permisos re-corrido 2026-07-21 para `asignaciones.*`)
 - **Tests:** PostgreSQL exclusivo (sin SQLite) — corren contra `vocare_test`, aislada de `vocare`. `docker compose exec api php artisan test` normal, sin flags extra (fix aplicado 2026-07-21, ver CONTEXTO.md). Suite en 0 fallas desde 2026-07-21.
 - **Git:** ver `CLAUDE.MD` en la raíz — sin atribución de IA en commits, y el asistente propone comandos de git para que el usuario los ejecute (no commitea de forma autónoma).
-- **Bloqueado:** diseño Fase 1 de `Etapa` (Clase Magistral, mínimos por
-  anexo/sub-rubro) discutido pero **no implementado** — esperando que el
-  cliente confirme los mínimos 55/52/60 + sub-mínimos de "Aptitud Docente" y
-  si el rollup aplica igual en Anexo 2/3 (ver CONTEXTO.md). E2E se mantiene
-  en espera de esto a propósito — no escribir tests contra un flujo que
-  podría reestructurarse.
-- **Próxima Acción:** retomar Etapa/E2E cuando el cliente confirme lo
-  anterior.
+- **CRUD admin de tablas de evaluación + Etapa — Fase 2 IMPLEMENTADA
+  (2026-07-21).** Backend funcional: `ReglamentoVersion` → `TablaEvaluacion`
+  → `Rubro` → `Variable` → `Indicador` con fork por anexo individual, ciclo
+  de vida borrador/activo/archivado, índice único parcial a nivel de BD,
+  linaje vía `version_anterior_id`; `Etapa` como plantilla de
+  `TablaEvaluacion` + `postulacion_etapa` operativo; `CalculadorService`
+  soporta `fuente='etapa'` (Clase Magistral); `ResultadosService` lee
+  mínimos (total + sub-rubro) desde `tabla_snapshot`. 86/86 tests passing.
+  **Falta el frontend admin** — todo esto es solo API por ahora.
+- **Bloqueado (solo del lado del cliente):** números 55/52/60 + sub-mínimos
+  de "Aptitud Docente" (confirmado como rollup en Anexo 1/2; Anexo 3 resuelto
+  como rubro único), vigencia del requisito de sub-rubro en TUO V10,
+  discrepancia Anexo 4.1 (8 vs 9). El motor ya soporta estos mínimos — solo
+  falta que un admin los configure una vez confirmados (sin código
+  adicional). E2E se mantiene en espera a propósito.
+- **Próxima Acción:** frontend admin para el CRUD de tablas de evaluación, o
+  cargar los mínimos reales en cuanto el cliente confirme.
 
 ---
 

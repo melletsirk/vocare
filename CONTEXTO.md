@@ -212,8 +212,212 @@ un mínimo de sub-rubro separado**:
    moverse a mínimos por anexo.
 2. Si el requisito de mínimo de sub-rubro sigue vigente en esta versión del
    TUO (V10, Junio 2025).
-3. Si Anexo 2 y Anexo 3 también son rollups sobre sub-rubros existentes o
-   mínimos de un solo rubro (solo se confirmó el caso de Anexo 1).
+
+**RESUELTO (2026-07-21) — regla general para rollup vs. rubro único:** si el
+nombre del mínimo coincide con una fila existente en `tablas-evaluacion-
+convocatorias.md`, el mínimo aplica a ESE rubro solo (sin combinar). Si el
+nombre no aparece como fila en el doc, es un rollup sobre los rubros que sí
+lista el doc por separado. Aplicado:
+- Anexo 3: "Concurso de Oposición" SÍ es una fila existente ("Clase Magistral
+  / Concurso de Oposición") → mínimo de rubro único, sin combinar con Sílabo.
+- Anexo 1 y 2: "Aptitud Docente" NO aparece como fila en ningún anexo → es un
+  rollup. Anexo 2 tiene la misma estructura de dos filas que Anexo 1
+  (Elaboración de Guía de Prácticas + Sesión de Prácticas), así que por
+  simetría se asume el mismo rollup ahí — pendiente de confirmar el número
+  (18), no la estructura.
+
+### 📐 CRUD de tablas de evaluación + Etapa — Fase 2 IMPLEMENTADA (2026-07-21)
+
+**Estado: funcional, con tests (86/86 passing).** Todo lo diseñado en la
+sección de abajo (Fase 1) está construido: migraciones, modelos,
+`CalculadorService`/`ResultadosService` actualizados, controllers admin
+(`TablasEvaluacionController` + `RubrosController`/`VariablesController`/
+`IndicadoresController`/`EtapasController`/`PostulacionEtapasController`),
+rutas, permiso `tablas_evaluacion.gestionar`. Los 6 anexos re-seedeados
+quedan `estado=activo` con sus totales originales intactos.
+
+**Cobertura de tests nuevos:**
+- `VersionadoTablaEvaluacionTest` — ciclo de vida borrador/activo/archivado,
+  activar deriva `puntaje_total_max`, bloqueo de edición, **y confirma en
+  Postgres real que el índice único parcial con COALESCE detecta el caso de
+  dos "activo" con `modalidad` NULL** (un índice plano no lo habría hecho).
+- `ForkTablaEvaluacionTest` — clonar una tabla activa copia rubros/
+  variables/indicadores/etapas completos sin tocar el original, remapeando
+  `etapa_id` a la etapa clonada (no a la original).
+- `PostulacionEtapaTest` — postular crea `postulacion_etapa` pendiente
+  automáticamente; `CalculadorService` aporta 0 si el evento no ha ocurrido
+  o no está aprobado, y toma el puntaje real una vez aprobado; autorización
+  por etapa en `PostulacionEtapasController`.
+- `MinimosSubRubroTest` — un candidato puede superar el mínimo total y aun
+  así quedar excluido por no cumplir un mínimo de sub-rubro (rollup tipo
+  "Aptitud Docente"); sin mínimos configurados, no bloquea nada (preserva
+  comportamiento actual mientras el cliente no confirme los números).
+
+**Pendiente, fuera de esta implementación:** frontend admin para todo este
+CRUD (nada de esto tiene UI todavía — solo API). Los números 55/52/60 +
+discrepancia Anexo 4.1 siguen sin fijarse en ningún seed, esperando al
+cliente.
+
+### 📐 Diseño Fase 1 — CRUD de tablas de evaluación + Etapa (2026-07-21, APROBADO, implementado en Fase 2 arriba)
+
+Requisito real del cliente: cuando la universidad emite una nueva Resolución
+que cambia el reglamento (nuevo rubro, puntajes modificados), el admin debe
+poder reflejarlo sin que un desarrollador toque `AnexosSeeder`. Debe respetar
+el modelo de inmutabilidad ya existente (`tabla_snapshot` por convocatoria).
+**Dirección de diseño confirmada — fork por anexo, no por reglamento
+completo; `Etapa` como plantilla de `TablaEvaluacion`.**
+
+**El ciclo de vida (`borrador`/`activo`/`archivado`) vive en `TablaEvaluacion`,
+no en `ReglamentoVersion`.** Al forkear por anexo individual (no por
+reglamento completo), ya no existe una sola fila que represente "el estado
+actual de todo" — Anexo 1 puede ir por su 3er fork mientras Anexo 3 sigue en
+el 1ro. `ReglamentoVersion` pasa a ser metadata de cita solamente (número,
+nombre, fecha de vigencia, documento fuente — "esta versión del anexo
+corresponde a la Resolución X"), reutilizable libremente entre forks de
+distintos anexos o de un mismo anexo a través del tiempo.
+
+- `borrador` — editable libremente, eliminable, NO seleccionable al crear una
+  convocatoria.
+- `activo` — la versión vigente de ESE anexo para su `(tipo_proceso,
+  modalidad)`. Se bloquea en el momento en que se activa (activar = publicar,
+  no "cuando lo usa la primera convocatoria").
+- `archivado` — versión activa anterior de ese mismo anexo, reemplazada por
+  un fork más nuevo. Sigue bloqueada, pero sigue siendo seleccionable al
+  crear una convocatoria (el cliente puede elegir una versión anterior a
+  propósito) — solo deja de ser el default.
+
+**"Una sola versión activa a la vez" se garantiza a nivel de base de datos,
+no solo en código** (mismo criterio que ya aplicamos en los gaps de
+evidencia/guardarPuntaje — una regla de negocio así de importante no debe
+depender de que el código de aplicación esté siempre bien escrito):
+
+```sql
+CREATE UNIQUE INDEX tablas_evaluacion_activa_unica
+ON tablas_evaluacion (tipo_proceso, COALESCE(modalidad, ''))
+WHERE estado = 'activo';
+```
+
+**Ojo con NULL:** un índice único plano `(tipo_proceso, modalidad)` NO
+hubiera bastado — Postgres trata cada `NULL` como distinto de cualquier otro
+`NULL` en un índice único, así que dos filas con `modalidad = NULL` (el caso
+real de Anexo 1 y Anexo 2 hoy) podrían ambas quedar `activo` al mismo tiempo
+sin que el índice lo detecte. El `COALESCE(modalidad, '')` normaliza `NULL`
+a un valor real y comparable, cerrando el hueco.
+
+**Linaje explícito:** `TablaEvaluacion.version_anterior_id` (nullable,
+self-FK) — cada fork apunta a la fila que reemplazó. Sin esto no se puede
+responder "qué estaba activo antes de este y por qué se archivó" salvo
+adivinando por fecha de creación.
+
+**Editar = crear versión nueva, nunca mutar una bloqueada — por anexo.** Al
+"crear nueva versión desde..." de UN anexo, se clona ese `TablaEvaluacion`
+(sus `Rubro`/`Variable`/`Indicador` y su plantilla de `Etapa`) a un
+`borrador` nuevo, con `version_anterior_id` apuntando al original. Los demás
+anexos no se tocan. El admin elige una `ReglamentoVersion` existente o crea
+una nueva para citar el fork — no está atado 1:1 a "un fork = una Resolución
+nueva".
+
+**Consecuencia de esto en el esquema:** el constraint único actual de
+`TablaEvaluacion` en `(reglamento_version_id, codigo_anexo)` ya no tiene
+sentido — el mismo `codigo_anexo` ("ANEXO_1") se reutiliza en cada fork. Se
+elimina; la unicidad real pasa a ser el índice parcial de arriba.
+
+**Validación obligatoria antes de activar** (`POST /tablas-evaluacion/{id}/activar`,
+bloquea con lista de errores si falla):
+- `puntaje_total_max` deja de ser un campo editable manualmente — se
+  **deriva** (suma de `puntaje_max_subrubro` de sus rubros). Cierra la misma
+  clase de bug que encontré y corregí a mano en Anexo 1 (107 vs 100).
+- Por `tipo_calculo`: `TABLA_EQUIVALENCIA` exige ≥1 `Indicador` con
+  `tabla_equivalencia` poblada; `MAYOR_VALOR` exige ≥1 `Indicador` definido
+  (cierra también el hallazgo de que `Indicador` está vacío en todo el
+  sistema); `DATO_INSTITUCIONAL` exige `fuente_verificacion` no vacío.
+- Mínimo total y sub-mínimos presentes y con `rubro_ids` válidos dentro de
+  la misma tabla.
+
+**Dónde viven los mínimos:** `TablaEvaluacion.puntaje_minimo_aprobatorio`
+(decimal) + JSON `minimos_subrubro` (ej. `[{nombre: "Aptitud Docente",
+rubro_ids: [7,8], minimo: 20}]` — un grupo de un solo id cubre el caso de
+rubro único sin rama de código aparte). Fluye a `tabla_snapshot` igual que
+`puntaje_max`/`puntaje_max_subrubro` ya lo hacen hoy; `ResultadosService` los
+lee del snapshot en vez de la constante global `PUNTAJE_MINIMO_APROBATORIO=50`.
+
+**`Etapa` — plantilla bajo `TablaEvaluacion` (confirmado).** El spec dice que
+las etapas "varían según tipo de convocatoria" — el conjunto y orden de
+etapas es propiedad del anexo, no algo que el admin re-escriba a mano cada
+vez. `Etapa.convocatoria_id` se reemplaza por `Etapa.tabla_evaluacion_id`.
+Se clona/bloquea junto con el resto del anexo al forkear. Al crear una
+`Convocatoria`, la plantilla se copia dentro de `tabla_snapshot` (array
+`etapas`), y de ahí se instancian los `postulacion_etapa` por postulación.
+Sin `es_eliminatoria` — esa lógica vive en los mínimos, no en una bandera de
+la plantilla. La plantilla es solo estructura (nombre/tipo/orden); pierde
+`fecha_inicio`/`fecha_fin` (no tienen sentido en algo reutilizable entre
+convocatorias) — lo operativo (`fecha_programada`, resultado, jurado) vive
+en `postulacion_etapa`, editable siempre sin importar si el anexo padre está
+bloqueado.
+
+#### Esquema actualizado (conceptual — antes de escribir cualquier migración)
+
+```
+ReglamentoVersion
+  id, numero_version, nombre, fecha_vigencia, documento_fuente
+  (sin "activo" — el ciclo de vida vive en TablaEvaluacion)
+
+TablaEvaluacion                              [unidad de fork/bloqueo]
+  id, reglamento_version_id (FK)
+  codigo_anexo, nombre, tipo_proceso, modalidad (nullable)
+  puntaje_total_max            -- derivado, ya no editable a mano
+  puntaje_minimo_aprobatorio    -- NUEVO
+  minimos_subrubro (json)       -- NUEVO: [{nombre, rubro_ids[], minimo}]
+  estado                        -- NUEVO: borrador|activo|archivado
+  version_anterior_id (nullable, self-FK)  -- NUEVO
+  -- constraint (reglamento_version_id, codigo_anexo) ELIMINADO
+  -- índice único parcial NUEVO:
+  --   UNIQUE (tipo_proceso, COALESCE(modalidad,'')) WHERE estado='activo'
+
+Rubro                                        -- sin cambios
+  id, tabla_evaluacion_id (FK), nombre, orden, puntaje_max_subrubro
+
+Variable
+  id, rubro_id (FK), nombre, orden, puntaje_max, tipo_calculo,
+  periodo_validez_anios, fuente_verificacion
+  fuente                        -- NUEVO: evidencia|etapa
+
+Indicador                                    -- sin cambios
+  id, variable_id (FK), nombre, puntaje, orden, tabla_equivalencia (json)
+
+Etapa                                         [plantilla, sigue a TablaEvaluacion]
+  id, tabla_evaluacion_id (FK)  -- CAMBIA de convocatoria_id
+  nombre, tipo, orden
+  -- ELIMINADOS: es_eliminatoria, fecha_inicio, fecha_fin
+
+postulacion_etapa                            [instancia operativa, NUEVO]
+  id, postulacion_id (FK), etapa_id (FK)
+  fecha_programada, fecha_realizada (nullable)
+  estado                        -- pendiente|aprobada|observada|rechazada|no_presentado
+  puntaje_bruto_evento (nullable decimal)
+  jurado_texto (nullable text)  -- un solo puntaje por rubro/etapa, sin desglose por jurado
+  comentario (nullable text)
+  registrado_por (FK user)      -- quién transcribió, no necesariamente quién juzgó
+
+AsignacionEvaluador
+  ... (sin cambios) + etapa_id (nullable FK)  -- NUEVO
+  -- constraint único pasa de (postulacion_id, evaluador_id)
+  --                        a  (postulacion_id, evaluador_id, etapa_id)
+  -- etapa_id NULL = asignado a toda la postulación (compatible con hoy)
+
+Convocatoria                                 -- sin cambios estructurales
+  tabla_snapshot crece: incluye "etapas" (copiado de la plantilla) y los
+  mínimos (puntaje_minimo_aprobatorio, minimos_subrubro), igual que ya
+  incluye rubros/variables/indicadores.
+```
+
+**Pendiente de confirmación del cliente (sin cambios, no bloquea el diseño):**
+números 55/52/60 + sub-mínimos, vigencia del requisito de sub-rubro en V10,
+y la discrepancia Anexo 4.1 (8 vs 9).
+
+**Fuera de alcance de este Fase 1:** migración de los Anexos ya seedeados al
+modelo versionado (Fase 2 — implementación real), validación en vivo mientras
+se edita un borrador (nice-to-have, no bloqueante).
 
 ### Sprints pendientes
 
