@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Evaluacion;
+use App\Models\PostulacionEtapa;
 use App\Models\PostulacionEvidencia;
 use App\Models\Puntaje;
 use App\Models\Variable;
@@ -29,7 +30,11 @@ class CalculadorService
      */
     public function calcular(Evaluacion $evaluacion): float
     {
-        $postulacion = $evaluacion->postulacion->load('convocatoria', 'postulacionEvidencias.evidencia');
+        $postulacion = $evaluacion->postulacion->load(
+            'convocatoria',
+            'postulacionEvidencias.evidencia',
+            'postulacionEtapas'
+        );
         $snapshot    = $postulacion->convocatoria->tabla_snapshot;
 
         if (!$snapshot) {
@@ -46,19 +51,31 @@ class CalculadorService
 
             foreach ($rubroData['variables'] as $varData) {
                 $variable = (object) $varData;
+                $fuente   = $variable->fuente ?? Variable::FUENTE_EVIDENCIA;
 
-                // Obtener evidencias aprobadas de esta variable
-                $evidencias = $this->evidenciasAprobadasDeVariable(
-                    $evaluacion,
-                    $variable->id
-                );
+                // fuente='etapa': el puntaje viene de un evento en vivo
+                // (Clase Magistral, Sesión de Prácticas) vía postulacion_etapa,
+                // no de evidencia documental. TABLA_EQUIVALENCIA se excluye
+                // aquí porque ya tiene su propio camino de entrada manual
+                // (guardarPuntaje → tablaEquivalencia(), sin cambios).
+                if ($fuente === Variable::FUENTE_ETAPA && $variable->tipo_calculo !== Variable::TIPO_TABLA_EQUIVALENCIA) {
+                    $postulacionEtapa = $postulacion->postulacionEtapas
+                        ->firstWhere('etapa_id', $variable->etapa_id);
 
-                // Calcular puntaje bruto y aplicar tope de variable
-                [$puntajeBruto, $detalle, $indicadorId, $valorEntrada] = $this->calcularVariable(
-                    $variable,
-                    $evidencias,
-                    $evaluacion
-                );
+                    [$puntajeBruto, $detalle, $indicadorId, $valorEntrada] = $this->etapaScore($postulacionEtapa);
+                } else {
+                    // Obtener evidencias aprobadas de esta variable
+                    $evidencias = $this->evidenciasAprobadasDeVariable(
+                        $evaluacion,
+                        $variable->id
+                    );
+
+                    [$puntajeBruto, $detalle, $indicadorId, $valorEntrada] = $this->calcularVariable(
+                        $variable,
+                        $evidencias,
+                        $evaluacion
+                    );
+                }
 
                 $puntajeVariableConTope = min($puntajeBruto, (float) $variable->puntaje_max);
                 $puntajeRubroAcumulado += $puntajeVariableConTope;
@@ -205,6 +222,36 @@ class CalculadorService
         ]];
 
         return [$puntajeMapeado, $detalle, $indicadorId, $valorEntrada];
+    }
+
+    /**
+     * fuente='etapa' — puntaje de un evento en vivo (Clase Magistral, etc.)
+     * registrado en postulacion_etapa después del hecho. Solo cuenta si el
+     * registro está 'aprobada' — igual disciplina que evidenciasAprobadasDeVariable():
+     * no basta con que haya un número, tiene que estar aprobado en el
+     * contexto de esta postulación. Sin registro, pendiente, observado,
+     * rechazado o no_presentado → aporta 0, igual que evidencia faltante —
+     * la postulación puede calcularse completa antes de que el evento ocurra.
+     */
+    private function etapaScore(?PostulacionEtapa $postulacionEtapa): array
+    {
+        if (!$postulacionEtapa
+            || $postulacionEtapa->estado !== PostulacionEtapa::ESTADO_APROBADA
+            || $postulacionEtapa->puntaje_bruto_evento === null) {
+            return [0.0, [], null, null];
+        }
+
+        $puntaje = (float) $postulacionEtapa->puntaje_bruto_evento;
+
+        $detalle = [[
+            'postulacion_etapa_id' => $postulacionEtapa->id,
+            'etapa_id'             => $postulacionEtapa->etapa_id,
+            'fecha_realizada'      => $postulacionEtapa->fecha_realizada?->toDateString(),
+            'jurado'               => $postulacionEtapa->jurado_texto,
+            'aporte'               => $puntaje,
+        ]];
+
+        return [$puntaje, $detalle, null, null];
     }
 
     /**

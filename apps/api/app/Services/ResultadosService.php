@@ -32,13 +32,19 @@ use Illuminate\Support\Collection;
  */
 class ResultadosService
 {
-    // Puntaje mínimo para no declarar plaza desierta y N° máximo de reservas:
-    // confirmados verbalmente por el cliente (Vicerrectorado Académico),
-    // 2026-07-21 — no están escritos en requisitos-sistema.md ni en
-    // tablas-evaluacion-convocatorias.md. Dejar registrado aquí para que sea
-    // trazable si se cuestiona el valor más adelante.
-    const PUNTAJE_MINIMO_APROBATORIO = 50.0;
-    const MAX_RESERVAS               = 3;
+    // N° máximo de reservas: confirmado verbalmente por el cliente
+    // (Vicerrectorado Académico), 2026-07-21 — no está escrito en
+    // requisitos-sistema.md ni en tablas-evaluacion-convocatorias.md. Dejar
+    // registrado aquí para que sea trazable si se cuestiona el valor.
+    const MAX_RESERVAS = 3;
+
+    // Fallback SOLO mientras un anexo no tenga su propio
+    // puntaje_minimo_aprobatorio configurado (tabla_snapshot). Los mínimos
+    // reales por anexo (55/52/60 + sub-mínimos de "Aptitud Docente") siguen
+    // pendientes de confirmación del cliente — ver CONTEXTO.md. Este
+    // fallback preserva el comportamiento actual (que corrió con 50 sin
+    // reclamos) hasta que cada anexo tenga su mínimo real configurado.
+    const PUNTAJE_MINIMO_APROBATORIO_FALLBACK = 50.0;
 
     /**
      * Genera y persiste el ranking de una plaza dentro de una convocatoria.
@@ -62,7 +68,7 @@ class ResultadosService
             })
             ->where('estado', Evaluacion::ESTADO_CERRADA)
             ->whereNotNull('puntaje_total')
-            ->with('postulacion')
+            ->with(['postulacion.convocatoria', 'puntajes'])
             ->get();
 
         if ($evaluaciones->isEmpty()) {
@@ -81,6 +87,10 @@ class ResultadosService
             return collect();
         }
 
+        $snapshot = $convocatoria->tabla_snapshot ?? [];
+        $minimoAprobatorio = $snapshot['puntaje_minimo_aprobatorio']
+            ?? self::PUNTAJE_MINIMO_APROBATORIO_FALLBACK;
+
         // Ordenar por puntaje DESC. Este orden es solo un criterio de
         // agrupación para detectar empates — dentro de un grupo empatado NO
         // se usa para decidir nada (ver bloque de empates abajo).
@@ -88,8 +98,17 @@ class ResultadosService
             ->sortByDesc('puntaje_total')
             ->values();
 
-        // Si el mejor puntaje no alcanza el mínimo → desierta
-        if ((float) $ordenadas->first()->puntaje_total < self::PUNTAJE_MINIMO_APROBATORIO) {
+        // Elegible = alcanza el mínimo total Y cumple todos los mínimos de
+        // sub-rubro (ej. "Aptitud Docente") — el total por sí solo no basta.
+        $mejorElegible = $ordenadas->first(
+            fn (Evaluacion $ev) => (float) $ev->puntaje_total >= $minimoAprobatorio
+                && $this->cumpleMinimosSubRubro($ev, $snapshot)
+        );
+
+        // Si nadie alcanza el mínimo (total o de sub-rubro) → desierta.
+        // Se reporta el mejor puntaje real (no 0) aunque nadie haya sido
+        // elegible, para no perder esa información en el resultado.
+        if (!$mejorElegible) {
             Resultado::create([
                 'convocatoria_id' => $convocatoria->id,
                 'plaza_id'        => $plaza->id,
@@ -102,6 +121,15 @@ class ResultadosService
             $plaza->update(['estado' => 'desierta']);
             return collect();
         }
+
+        // Los no-elegibles (no alcanzan mínimo total o de sub-rubro) quedan
+        // fuera del ranking contactable — se excluyen antes de agrupar
+        // empates, para que un no-elegible con puntaje alto no ocupe una
+        // posición de ganador/reserva.
+        $ordenadas = $ordenadas->filter(
+            fn (Evaluacion $ev) => (float) $ev->puntaje_total >= $minimoAprobatorio
+                && $this->cumpleMinimosSubRubro($ev, $snapshot)
+        )->values();
 
         $rangoContactable = 1 + self::MAX_RESERVAS; // posiciones 1..4 (ganador + reservas)
         $resultados = collect();
@@ -234,6 +262,49 @@ class ResultadosService
         return $posicion <= $rangoContactable
             ? Resultado::ESTADO_RESERVA
             : Resultado::ESTADO_NO_GANADOR;
+    }
+
+    /**
+     * ¿Esta evaluación cumple todos los mínimos de sub-rubro configurados
+     * para el anexo (ej. "Aptitud Docente")? El mínimo total no basta —
+     * confirmado por el cliente que además hay un piso por sub-rubro,
+     * potencialmente sobre un grupo de rubros (rollup), no solo uno.
+     *
+     * Sin `minimos_subrubro` configurado (anexo aún sin los valores
+     * confirmados por el cliente) → true, no bloquea nada todavía.
+     */
+    private function cumpleMinimosSubRubro(Evaluacion $evaluacion, array $snapshot): bool
+    {
+        $minimos = $snapshot['minimos_subrubro'] ?? [];
+
+        if (empty($minimos)) {
+            return true;
+        }
+
+        $puntajePorVariable = $evaluacion->puntajes->keyBy('variable_id');
+
+        foreach ($minimos as $grupo) {
+            $sumaGrupo = 0.0;
+            $rubroIds  = collect($grupo['rubro_ids'] ?? []);
+
+            foreach ($snapshot['rubros'] as $rubroData) {
+                if (!$rubroIds->contains($rubroData['id'])) {
+                    continue;
+                }
+
+                // Todas las variables de un rubro comparten puntaje_subrubro
+                // (calculado en CalculadorService) — basta leerlo de una.
+                $primeraVariableId = $rubroData['variables'][0]['id'] ?? null;
+                $puntaje = $primeraVariableId ? $puntajePorVariable->get($primeraVariableId) : null;
+                $sumaGrupo += (float) ($puntaje->puntaje_subrubro ?? 0);
+            }
+
+            if ($sumaGrupo < (float) ($grupo['minimo'] ?? 0)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
