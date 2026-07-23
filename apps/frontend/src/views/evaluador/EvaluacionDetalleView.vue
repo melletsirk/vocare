@@ -584,7 +584,7 @@ const vigenciaLabel = (ev: any) => {
 
             <div v-for="(piv, i) in pasoActual.evidencias" :key="piv.id" class="card mb-3">
               <div class="flex justify-between items-center mb-2">
-                <span class="text-sm text-muted">Evidencia {{ i + 1 }} de {{ pasoActual.evidencias.length }}</span>
+                <span class="text-sm text-muted">Evidencia {{ Number(i) + 1 }} de {{ pasoActual.evidencias.length }}</span>
                 <div class="flex gap-2">
                   <span class="badge" :class="evidEstadoBadge[piv.estado_en_postulacion]">{{ piv.estado_en_postulacion }}</span>
                   <span class="badge" :class="vigenciaBadge(piv)">{{ vigenciaLabel(piv) }}</span>

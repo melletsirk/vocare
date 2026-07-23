@@ -795,6 +795,12 @@ tbody td { padding: 0.875rem 1rem; font-size: var(--text-sm); vertical-align: mi
 }
 .accordion.is-open .accordion-trigger { border-bottom: 1px solid transparent; }
 
+/* Fila de requisito dentro de un acordeón (expediente) — separador simple,
+   no una card anidada dentro de otra card. */
+.requisito-row { padding: 0.9rem 0; border-bottom: 1px solid var(--surface-border); }
+.requisito-row:first-child { padding-top: 0; }
+.requisito-row:last-child { padding-bottom: 0; border-bottom: none; }
+
 /* ===================================================================
    Progress card — fila de una cola de trabajo (bandeja, postulaciones):
    título + meta + progreso opcional + una sola acción. Nunca una tabla
@@ -834,6 +840,58 @@ tbody td { padding: 0.875rem 1rem; font-size: var(--text-sm); vertical-align: mi
   font-variant-numeric: tabular-nums;
 }
 .progress-card-action { flex-shrink: 0; }
+
+/* ===================================================================
+   Postulación card (Mis postulaciones) — reemplaza la fila de tabla:
+   título, stepper de avance, progreso del expediente y siguiente paso.
+=================================================================== */
+.postulacion-card { margin-bottom: 0.9rem; }
+.postulacion-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.1rem;
+}
+.postulacion-card-head h3 { font-size: var(--text-base); margin-bottom: 0.15rem; }
+.postulacion-card-stepper { margin-bottom: 1.1rem; max-width: 420px; }
+.postulacion-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--surface-border);
+}
+.postulacion-card-foot p { color: var(--clr-gray-600); margin: 0; }
+
+/* ===================================================================
+   Resultado — tarjeta única y centrada (el postulante solo ve el total
+   y su posición, nunca el desglose — ver requisitos-sistema.md §10).
+=================================================================== */
+.resultado-card { text-align: center; padding: 2rem 1.5rem; }
+.resultado-icon { margin: 0 auto 0.5rem; color: var(--clr-success-600); }
+.resultado-estado {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: 500;
+  color: var(--clr-gray-700);
+  margin-bottom: 0.25rem;
+}
+.resultado-puntaje {
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--clr-gray-900);
+  margin-bottom: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.resultado-puntaje span { font-size: var(--text-lg); font-weight: 400; color: var(--clr-gray-400); }
+.resultado-card.resultado-ganador .resultado-estado { color: var(--clr-success-700); }
+.resultado-card.resultado-ganador .resultado-puntaje { color: var(--clr-success-700); }
+.resultado-card.resultado-reserva .resultado-estado { color: var(--clr-primary-700); }
+.resultado-card.resultado-desierta .resultado-estado { color: var(--clr-warning-600); }
 
 /* ===================================================================
    Login page

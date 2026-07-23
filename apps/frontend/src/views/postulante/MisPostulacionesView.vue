@@ -1,15 +1,22 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onMounted } from 'vue'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import Icon from '@/components/ui/Icon.vue'
+import Stepper from '@/components/ui/Stepper.vue'
+import { construirChecklist, type ChecklistResumen } from '@/utils/expedienteChecklist'
+import { pasoActualDe, pasosConEstado } from '@/utils/postulacionProgreso'
 
-const router    = useRouter()
 const authStore = useAuthStore()
 
 const postulaciones = ref<any[]>([])
-const loading       = ref(true)
+const loading        = ref(true)
+
+// Progreso del expediente (solo postulaciones aún no enviadas) y resultado
+// publicado (solo enviadas) — el índice de listado no trae ninguno de los
+// dos, se completan aparte por postulación.
+const checklistPorPostulacion = reactive<Record<number, ChecklistResumen>>({})
+const resultadoPorPostulacion = reactive<Record<number, any>>({})
 
 // Modal Nueva Postulación
 const showModal      = ref(false)
@@ -18,24 +25,66 @@ const convocatorias  = ref<any[]>([])
 const plazas         = ref<any[]>([])
 const form           = ref({ convocatoria_id: '', plaza_id: '', categoria_actual: '' })
 
-const estadoBadge: Record<string, string> = {
-  en_proceso: 'badge-yellow', observada: 'badge-indigo',
-  rechazada: 'badge-red', aprobada_etapa: 'badge-green', ganadora: 'badge-blue',
-}
-const estadoLabel: Record<string, string> = {
-  en_proceso: 'En proceso', observada: 'Observada',
-  rechazada: 'Rechazada', aprobada_etapa: 'Aprobada', ganadora: 'Ganadora',
-}
-
-async function fetchPostulaciones() {
-  const { data } = await api.get('/postulaciones')
-  postulaciones.value = data.data ?? data
-}
-
 onMounted(async () => {
   await fetchPostulaciones()
   loading.value = false
 })
+
+async function fetchPostulaciones() {
+  const { data } = await api.get('/postulaciones')
+  postulaciones.value = data.data ?? data
+
+  await Promise.all(postulaciones.value.map(async (p: any) => {
+    if (!p.fecha_envio) {
+      const { data: evidencias } = await api.get(`/postulaciones/${p.id}/evidencias`)
+      checklistPorPostulacion[p.id] = construirChecklist(p.convocatoria?.tabla_snapshot, evidencias)
+    } else {
+      try {
+        const { data: resultado } = await api.get(`/postulaciones/${p.id}/resultado`)
+        resultadoPorPostulacion[p.id] = resultado
+      } catch {
+        resultadoPorPostulacion[p.id] = null
+      }
+    }
+  }))
+}
+
+const resultadoLabel: Record<string, string> = {
+  ganador: 'Resultado: Ganador/a', reserva: 'Resultado: Reserva',
+  no_ganador: 'Resultado: No ganador/a', desierta: 'Plaza declarada desierta',
+}
+
+function siguientePaso(p: any): string {
+  if (!p.fecha_envio) {
+    const c = checklistPorPostulacion[p.id]
+    if (c && c.totalCompletos < c.totalRequisitos) {
+      return `Sube ${c.totalRequisitos - c.totalCompletos} documento(s) pendiente(s) y envía tu postulación`
+    }
+    return 'Todo listo — envía tu postulación formalmente'
+  }
+  if (p.estado === 'rechazada') return 'Esta postulación fue rechazada'
+  if (p.estado === 'observada') return 'Tienes una observación pendiente de corregir'
+  const resultado = resultadoPorPostulacion[p.id]
+  if (resultado) return resultadoLabel[resultado.estado] ?? 'Resultado publicado'
+  return 'Tu expediente está en evaluación'
+}
+
+function ctaTo(p: any): string {
+  if (!p.fecha_envio) return `/mis-postulaciones/${p.id}/expediente`
+  return `/mis-postulaciones/${p.id}`
+}
+
+function ctaLabel(p: any): string {
+  if (!p.fecha_envio) return 'Ir al expediente →'
+  if (resultadoPorPostulacion[p.id]) return 'Ver resultado →'
+  return 'Ver detalle →'
+}
+
+function pct(p: any): number {
+  const c = checklistPorPostulacion[p.id]
+  if (!c || c.totalRequisitos === 0) return 0
+  return Math.round((c.totalCompletos / c.totalRequisitos) * 100)
+}
 
 async function openModal() {
   form.value  = { convocatoria_id: '', plaza_id: '', categoria_actual: '' }
@@ -81,7 +130,7 @@ async function submitPostulacion() {
   <div>
     <div class="page-header">
       <div>
-        <h1>Mis Postulaciones</h1>
+        <h1>Mis postulaciones</h1>
         <p>Historial de tus procesos de selección</p>
       </div>
       <button v-if="authStore.isPostulante" class="btn btn-primary" @click="openModal">
@@ -99,44 +148,35 @@ async function submitPostulacion() {
       </div>
     </div>
 
-    <div v-else class="card" style="padding:0">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Convocatoria</th>
-              <th>Plaza</th>
-              <th>Facultad</th>
-              <th>Enviada</th>
-              <th>Estado</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="p in postulaciones" :key="p.id">
-              <td class="text-sm">{{ p.convocatoria?.codigo }}</td>
-              <td class="font-medium">{{ p.plaza?.asignatura }}</td>
-              <td class="text-sm text-muted">{{ p.plaza?.facultad }}</td>
-              <td class="text-sm">
-                <span v-if="p.fecha_envio">
-                  {{ new Date(p.fecha_envio).toLocaleDateString('es-PE') }}
-                </span>
-                <span v-else class="badge badge-gray" style="font-size:0.7rem">Borrador</span>
-              </td>
-              <td>
-                <span class="badge" :class="estadoBadge[p.estado] || 'badge-gray'">
-                  <Icon v-if="p.estado === 'ganadora'" name="award" :size="12" />
-                  {{ estadoLabel[p.estado] ?? p.estado }}
-                </span>
-              </td>
-              <td>
-                <RouterLink :to="`/mis-postulaciones/${p.id}`" class="btn btn-ghost btn-sm">
-                  Ver detalle →
-                </RouterLink>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+    <div v-else>
+      <div v-for="p in postulaciones" :key="p.id" class="card postulacion-card">
+        <div class="postulacion-card-head">
+          <div>
+            <h3>{{ p.plaza?.asignatura }}</h3>
+            <p class="text-xs text-muted">{{ p.convocatoria?.codigo }} · {{ p.plaza?.facultad }}</p>
+          </div>
+          <span v-if="p.estado === 'observada'" class="badge badge-indigo">Observada</span>
+          <span v-else-if="p.estado === 'rechazada'" class="badge badge-red">Rechazada</span>
+          <span v-else-if="resultadoPorPostulacion[p.id]?.estado === 'ganador'" class="badge badge-green">
+            <Icon name="award" :size="12" /> Ganador/a
+          </span>
+        </div>
+
+        <Stepper :steps="pasosConEstado(p)" :current-key="pasoActualDe(p, !!resultadoPorPostulacion[p.id])" class="postulacion-card-stepper" />
+
+        <template v-if="!p.fecha_envio && checklistPorPostulacion[p.id]">
+          <div class="flex justify-between items-center mb-1">
+            <span class="text-xs text-muted">
+              {{ checklistPorPostulacion[p.id].totalCompletos }} / {{ checklistPorPostulacion[p.id].totalRequisitos }} requisitos completos
+            </span>
+          </div>
+          <div class="progress-bar mb-3"><div class="progress-fill" :style="{ width: pct(p) + '%' }"></div></div>
+        </template>
+
+        <div class="postulacion-card-foot">
+          <p class="text-sm">{{ siguientePaso(p) }}</p>
+          <RouterLink :to="ctaTo(p)" class="btn btn-secondary btn-sm">{{ ctaLabel(p) }}</RouterLink>
+        </div>
       </div>
     </div>
 

@@ -16,7 +16,7 @@ async function submit() {
   error.value   = ''
   loading.value = true
   try {
-    const user = await auth.login(form.email, form.password)
+    await auth.login(form.email, form.password)
     const redirect = (route.query.redirect as string) || '/dashboard'
     router.push(redirect)
   } catch (e: any) {

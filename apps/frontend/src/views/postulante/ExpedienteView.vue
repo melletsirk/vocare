@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, nextTick, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
+import AccordionSection from '@/components/ui/AccordionSection.vue'
+import { construirChecklist } from '@/utils/expedienteChecklist'
 
 const route  = useRoute()
 const router = useRouter()
@@ -11,19 +13,35 @@ const postulacion = ref<any>(null)
 const evidencias  = ref<any[]>([])
 const loading     = ref(true)
 
-// ── Checklist: una fila por variable (requisito) configurado, agrupado
-// por rubro — nunca un dropdown genérico donde el postulante deba adivinar
-// a qué requisito corresponde cada archivo. ─────────────────────────────────
-const checklist = computed(() => {
-  const rubros = postulacion.value?.convocatoria?.tabla_snapshot?.rubros ?? []
-  return rubros.map((rubro: any) => ({
-    nombre: rubro.nombre,
-    variables: rubro.variables.map((variable: any) => ({
-      variable,
-      evidencias: evidencias.value.filter((ev: any) => ev.evidencia?.variable_id === variable.id),
-    })),
-  }))
-})
+// ── Checklist agrupado por rubro — acordeón, no lista plana. Progressive
+// disclosure real: colapsado salvo el primer rubro incompleto. ─────────────
+const resumen = computed(() => construirChecklist(postulacion.value?.convocatoria?.tabla_snapshot, evidencias.value))
+
+const abiertos = reactive<Record<string, boolean>>({})
+let abiertosInicializados = false
+
+function inicializarAbiertos() {
+  if (abiertosInicializados || resumen.value.rubros.length === 0) return
+  const idx = resumen.value.primerRubroIncompletoIndex
+  if (idx >= 0) abiertos[resumen.value.rubros[idx].nombre] = true
+  abiertosInicializados = true
+}
+
+// Referencias DOM por variable_id, para el modo guiado ("siguiente pendiente").
+const variableRefs = ref<Record<number, HTMLElement | null>>({})
+
+function irASiguientePendiente() {
+  for (const rubro of resumen.value.rubros) {
+    const pendiente = rubro.variables.find((v) => !v.completo)
+    if (pendiente) {
+      abiertos[rubro.nombre] = true
+      nextTick(() => {
+        variableRefs.value[pendiente.variable.id]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
+      return
+    }
+  }
+}
 
 // Estado por-fila del formulario de subida/reutilización, indexado por variable_id
 const formPorVariable = reactive<Record<number, {
@@ -61,6 +79,7 @@ async function cargar() {
   } finally {
     loading.value = false
   }
+  inicializarAbiertos()
 }
 
 const estadoEvidencia: Record<string, string> = {
@@ -70,6 +89,14 @@ const estadoEvidencia: Record<string, string> = {
 const estadoLabel: Record<string, string> = {
   pendiente: 'Subido — en revisión', aprobada: 'Aprobado',
   observada: 'Observado', rechazada: 'Rechazado',
+}
+
+function estadoRubro(rubro: { completos: number; total: number }): 'done' | 'warn' {
+  return rubro.completos === rubro.total ? 'done' : 'warn'
+}
+function metaRubro(rubro: { completos: number; total: number }): string {
+  if (rubro.completos === rubro.total) return `${rubro.total}/${rubro.total}`
+  return `${rubro.completos}/${rubro.total} — falta${rubro.total - rubro.completos === 1 ? '' : 'n'} ${rubro.total - rubro.completos}`
 }
 
 function abrirSubir(variableId: number) {
@@ -152,7 +179,9 @@ const totalBytes = computed(() => {
   unicas.forEach(val => { sum += val })
   return sum
 })
-const pctUsed = computed(() => Math.min((totalBytes.value / 209715200) * 100, 100).toFixed(1))
+const pctRequisitos = computed(() => resumen.value.totalRequisitos === 0
+  ? 0
+  : Math.round((resumen.value.totalCompletos / resumen.value.totalRequisitos) * 100))
 </script>
 
 <template>
@@ -162,36 +191,50 @@ const pctUsed = computed(() => Math.min((totalBytes.value / 209715200) * 100, 10
     <div class="page-header">
       <div>
         <button class="btn btn-ghost btn-sm mb-1" @click="router.back()">← Volver</button>
-        <h1>Expediente Digital</h1>
+        <h1>Expediente digital</h1>
         <p>{{ postulacion.plaza?.asignatura }} — {{ postulacion.convocatoria?.nombre }}</p>
       </div>
-      <span class="badge badge-blue">{{ postulacion.estado?.replace('_', ' ') }}</span>
+      <button
+        v-if="resumen.totalCompletos < resumen.totalRequisitos"
+        class="btn btn-primary btn-sm"
+        @click="irASiguientePendiente"
+      >
+        Ir al siguiente pendiente →
+      </button>
     </div>
 
-    <!-- Cuota storage -->
+    <!-- Progreso — requisitos + almacenamiento en un solo bloque -->
     <div class="card mb-4">
       <div class="flex justify-between items-center mb-2">
-        <span class="text-sm font-medium">Almacenamiento usado (archivos únicos)</span>
-        <span class="text-sm text-muted">{{ formatBytes(totalBytes) }} / 200 MB</span>
+        <span class="text-sm font-medium">{{ resumen.totalCompletos }} / {{ resumen.totalRequisitos }} requisitos completos</span>
+        <span class="text-xs text-muted">{{ formatBytes(totalBytes) }} / 200 MB</span>
       </div>
-      <div class="progress-bar">
-        <div class="progress-fill" :style="{ width: pctUsed + '%' }"></div>
-      </div>
-      <div class="text-xs text-muted mt-1">{{ pctUsed }}% utilizado</div>
+      <div class="progress-bar"><div class="progress-fill" :style="{ width: pctRequisitos + '%' }"></div></div>
     </div>
 
-    <!-- ══ CHECKLIST por requisito configurado — nunca un dropdown genérico ══ -->
-    <div v-for="rubro in checklist" :key="rubro.nombre" class="mb-4">
-      <h3 class="font-semibold mb-2">{{ rubro.nombre }}</h3>
-
-      <div v-for="item in rubro.variables" :key="item.variable.id" class="card mb-3">
+    <!-- ══ ACORDEÓN por rubro — colapsado salvo el primero incompleto ══ -->
+    <AccordionSection
+      v-for="rubro in resumen.rubros"
+      :key="rubro.nombre"
+      :title="rubro.nombre"
+      :meta="metaRubro(rubro)"
+      :status="estadoRubro(rubro)"
+      :open="!!abiertos[rubro.nombre]"
+      @update:open="(v) => abiertos[rubro.nombre] = v"
+    >
+      <div
+        v-for="item in rubro.variables"
+        :key="item.variable.id"
+        :ref="(el) => variableRefs[item.variable.id] = (el as HTMLElement)"
+        class="requisito-row"
+      >
         <!-- fuente='etapa' (Clase Magistral, etc.) — no requiere documento -->
         <div v-if="item.variable.fuente === 'etapa'" class="flex justify-between items-center">
           <div>
             <p class="font-medium">{{ item.variable.nombre }}</p>
             <p class="text-xs text-muted">Se evalúa mediante evento presencial — no requiere documento.</p>
           </div>
-          <span class="badge badge-gray">ℹ️ Evento presencial</span>
+          <span class="badge badge-gray">Evento presencial</span>
         </div>
 
         <!-- Requisito basado en documento -->
@@ -272,6 +315,6 @@ const pctUsed = computed(() => Math.min((totalBytes.value / 209715200) * 100, 10
           </div>
         </template>
       </div>
-    </div>
+    </AccordionSection>
   </div>
 </template>

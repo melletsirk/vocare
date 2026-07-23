@@ -5,6 +5,14 @@
     "types": ["vite/client"],
     "allowArbitraryExtensions": true,
 
+    /* Alias "@/" — espejo de resolve.alias en vite.config.ts. Sin esto
+       vue-tsc no puede resolver ningún import "@/...", aunque Vite sí lo
+       resuelva en dev/build (son motores de resolución de módulos
+       distintos) — vue-tsc -b fallaba en el primer archivo procesado.
+       Sin baseUrl: con moduleResolution "Bundler" (heredado de
+       @vue/tsconfig) los paths ya se resuelven relativos a este archivo. */
+    "paths": { "@/*": ["./src/*"] },
+
     /* Linting */
     "noUnusedLocals": true,
     "noUnusedParameters": true,
