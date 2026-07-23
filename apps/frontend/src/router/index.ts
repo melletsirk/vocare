@@ -29,6 +29,20 @@ const router = createRouter({
           meta: { roles: ['admin'] },
         },
 
+        // ── Admin — Tablas de evaluación (versionado por anexo) ────
+        {
+          path: 'admin/tablas-evaluacion',
+          name: 'admin.tablas-evaluacion',
+          component: () => import('@/views/admin/TablasEvaluacionView.vue'),
+          meta: { roles: ['admin'] },
+        },
+        {
+          path: 'admin/tablas-evaluacion/:id',
+          name: 'admin.tablas-evaluacion.detalle',
+          component: () => import('@/views/admin/TablaEvaluacionDetalleView.vue'),
+          meta: { roles: ['admin'] },
+        },
+
         // ── Convocatorias ─────────────────────────────────────────
         {
           path: 'convocatorias',

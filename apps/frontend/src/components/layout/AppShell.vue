@@ -28,6 +28,7 @@ const navItems = computed(() => {
     items.push({ to: '/evaluaciones', label: 'Evaluaciones', icon: 'check-square' })
   }
   if (rol === 'admin') {
+    items.push({ to: '/admin/tablas-evaluacion', label: 'Tablas de evaluación', icon: 'layers' })
     items.push({ to: '/auditoria',      label: 'Auditoría',  icon: 'activity' })
     items.push({ to: '/admin/usuarios', label: 'Usuarios',   icon: 'users' })
   }

@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
 import Icon from '@/components/ui/Icon.vue'
+import Stepper from '@/components/ui/Stepper.vue'
+import AccordionSection from '@/components/ui/AccordionSection.vue'
+import type { StepperStep } from '@/components/ui/Stepper.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -29,6 +32,7 @@ const evaluacionesConv = ref<any[]>([])
 const postulaciones = ref<any[]>([])
 const asignaciones  = ref<any[]>([])
 const evaluadores   = ref<any[]>([])
+const asignacionesGlobales = ref<any[]>([]) // todas las del sistema — para carga de trabajo real
 const evaluadorElegido = reactive<Record<number, string>>({}) // postulacion_id -> evaluador_id
 const asignando = reactive<Record<number, boolean>>({})
 const quitando   = reactive<Record<number, boolean>>({})
@@ -41,16 +45,22 @@ const evaluacionEstadoBadge: Record<string, string> = {
   en_proceso: 'badge-yellow', completada: 'badge-blue', cerrada: 'badge-green',
 }
 
-const estadoBadge: Record<string, string> = {
-  borrador:'badge-gray', publicada:'badge-blue',
-  en_proceso:'badge-yellow', cerrada:'badge-green',
-}
-const estadoLabel: Record<string, string> = {
-  borrador:'Borrador', publicada:'Publicada', en_proceso:'En Proceso', cerrada:'Cerrada',
-}
 const plazaEstadoBadge: Record<string, string> = {
   activa:'badge-blue', cubierta:'badge-green', desierta:'badge-red',
 }
+
+const ESTADOS_CONV: StepperStep[] = [
+  { key: 'borrador',    label: 'Borrador' },
+  { key: 'publicada',   label: 'Publicada' },
+  { key: 'en_proceso',  label: 'En proceso' },
+  { key: 'cerrada',     label: 'Cerrada' },
+]
+const pasosConvocatoria = computed<StepperStep[]>(() => {
+  if (conv.value?.estado === 'desierta') {
+    return ESTADOS_CONV.map((p) => (p.key === 'cerrada' ? { ...p, label: 'Desierta', state: 'error' as const } : p))
+  }
+  return ESTADOS_CONV
+})
 
 onMounted(async () => {
   await cargar()
@@ -68,12 +78,14 @@ async function cargar() {
 
     if (canManage) {
       await cargarAsignaciones()
-      const [postRes, evalRes] = await Promise.all([
+      const [postRes, evalRes, todasAsigRes] = await Promise.all([
         api.get('/postulaciones', { params: { convocatoria_id: id } }),
         api.get('/evaluaciones', { params: { convocatoria_id: id } }),
+        api.get('/asignaciones'),
       ])
-      todasPostulaciones.value = postRes.data.data ?? postRes.data
-      evaluacionesConv.value   = evalRes.data.data ?? evalRes.data
+      todasPostulaciones.value  = postRes.data.data ?? postRes.data
+      evaluacionesConv.value    = evalRes.data.data ?? evalRes.data
+      asignacionesGlobales.value = todasAsigRes.data.data ?? todasAsigRes.data
     }
   } finally {
     loading.value = false
@@ -95,10 +107,22 @@ function asignacionesDe(postulacionId: number) {
   return asignaciones.value.filter((a) => a.postulacion_id === postulacionId)
 }
 
-async function asignarEvaluador(postulacionId: number) {
-  const evaluadorId = evaluadorElegido[postulacionId]
-  if (!evaluadorId) return
+// Carga de trabajo real del evaluador: asignaciones cuya evaluación todavía
+// no está cerrada (o ni siquiera existe) — en cualquier convocatoria, no
+// solo esta. Sin esto, asignar es una apuesta a ciegas sobre quién ya está
+// sobrecargado.
+function cargaDe(evaluadorId: number): number {
+  return asignacionesGlobales.value.filter((a) =>
+    a.evaluador_id === evaluadorId && a.postulacion?.evaluacion?.estado !== 'cerrada'
+  ).length
+}
+const evaluadoresPorCarga = computed(() =>
+  [...evaluadores.value].sort((a, b) => cargaDe(a.id) - cargaDe(b.id))
+)
+const sinAsignar = computed(() => postulaciones.value.filter((p) => asignacionesDe(p.id).length === 0))
 
+async function asignarA(postulacionId: number, evaluadorId: string) {
+  if (!evaluadorId) return
   asignando[postulacionId] = true
   try {
     await api.post(`/convocatorias/${id}/asignaciones`, {
@@ -106,7 +130,7 @@ async function asignarEvaluador(postulacionId: number) {
       evaluador_id: evaluadorId,
     })
     evaluadorElegido[postulacionId] = ''
-    await cargarAsignaciones()
+    await cargar()
   } catch (e: any) {
     alert(e.response?.data?.message || 'No se pudo asignar el evaluador')
   } finally {
@@ -119,7 +143,7 @@ async function quitarAsignacion(asignacionId: number) {
   quitando[asignacionId] = true
   try {
     await api.delete(`/asignaciones/${asignacionId}`)
-    await cargarAsignaciones()
+    await cargar()
   } catch (e: any) {
     alert(e.response?.data?.message || 'No se pudo quitar la asignación')
   } finally {
@@ -152,6 +176,17 @@ async function guardarPlaza() {
   }
 }
 
+// Cobertura de evaluador por plaza — cuántas postulaciones enviadas de esta
+// plaza no tienen ningún evaluador asignado todavía.
+function postulantesDe(plazaId: number): any[] {
+  return todasPostulaciones.value.filter((p) => p.plaza_id === plazaId)
+}
+function sinAsignarDe(plazaId: number): number {
+  return todasPostulaciones.value.filter((p) =>
+    p.plaza_id === plazaId && p.fecha_envio && asignacionesDe(p.id).length === 0
+  ).length
+}
+
 const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
 </script>
 
@@ -162,10 +197,7 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
     <!-- Header -->
     <div class="page-header">
       <div>
-        <div class="flex items-center gap-3 mb-1">
-          <button class="btn btn-ghost btn-sm" @click="router.back()">← Volver</button>
-          <span class="badge" :class="estadoBadge[conv.estado]">{{ estadoLabel[conv.estado] }}</span>
-        </div>
+        <button class="btn btn-ghost btn-sm mb-1" @click="router.back()">← Volver</button>
         <h1>{{ conv.nombre }}</h1>
         <p>{{ conv.codigo }} · {{ conv.tipo_proceso }}</p>
       </div>
@@ -185,32 +217,13 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
       </div>
     </div>
 
-    <!-- Info rápida -->
-    <div class="stats-grid mb-4">
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#EEF1EE;color:#3A423E"><Icon name="clipboard" :size="22" /></div>
-        <div><div class="stat-value">{{ plazas.length }}</div><div class="stat-label">Plazas</div></div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#EDF5EE;color:#3B7548"><Icon name="check-circle" :size="22" /></div>
-        <div>
-          <div class="stat-value">{{ plazas.filter(p => p.estado === 'cubierta').length }}</div>
-          <div class="stat-label">Cubiertas</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#EEF1EE;color:#525C57"><Icon name="calendar" :size="22" /></div>
-        <div>
-          <div class="stat-value">{{ new Date(conv.fecha_inicio).toLocaleDateString('es-PE') }}</div>
-          <div class="stat-label">Inicio</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon" style="background:#F7F0E4;color:#AD8130"><Icon name="flag" :size="22" /></div>
-        <div>
-          <div class="stat-value">{{ new Date(conv.fecha_fin).toLocaleDateString('es-PE') }}</div>
-          <div class="stat-label">Fin</div>
-        </div>
+    <!-- Estado + fechas -->
+    <div class="card mb-4">
+      <Stepper :steps="pasosConvocatoria" :current-key="conv.estado === 'desierta' ? 'cerrada' : conv.estado" />
+      <div class="flex gap-4 mt-3 text-sm text-muted">
+        <span>{{ new Date(conv.fecha_inicio).toLocaleDateString('es-PE') }} → {{ new Date(conv.fecha_fin).toLocaleDateString('es-PE') }}</span>
+        <span>{{ plazas.length }} plaza{{ plazas.length === 1 ? '' : 's' }}</span>
+        <span>{{ plazas.filter((p: any) => p.estado === 'cubierta').length }} cubierta{{ plazas.filter((p: any) => p.estado === 'cubierta').length === 1 ? '' : 's' }}</span>
       </div>
     </div>
 
@@ -229,7 +242,7 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
       </button>
     </div>
 
-    <!-- Plazas -->
+    <!-- Plazas — cards, no tabla -->
     <div v-if="tab === 'plazas'">
       <div class="flex justify-between items-center mb-3">
         <h3 class="font-semibold">Plazas disponibles</h3>
@@ -243,64 +256,46 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
         </div>
       </div>
 
-      <div v-else class="card" style="padding:0">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Facultad</th>
-                <th>Departamento</th>
-                <th>Asignatura</th>
-                <th>Modalidad</th>
-                <th>Horas/Sem</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="p in plazas" :key="p.id">
-                <td>{{ p.facultad }}</td>
-                <td>{{ p.departamento }}</td>
-                <td class="font-medium">{{ p.asignatura }}</td>
-                <td>{{ p.modalidad || '—' }}</td>
-                <td>{{ p.horas_semana || '—' }}</td>
-                <td>
-                  <span class="badge" :class="plazaEstadoBadge[p.estado] ?? 'badge-gray'">
-                    {{ p.estado }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <div v-else class="plazas-grid">
+        <div v-for="p in plazas" :key="p.id" class="card plaza-card">
+          <div class="flex justify-between items-start mb-2">
+            <h3 class="font-semibold">{{ p.asignatura }}</h3>
+            <span class="badge" :class="plazaEstadoBadge[p.estado] ?? 'badge-gray'">{{ p.estado }}</span>
+          </div>
+          <p class="text-xs text-muted mb-3">{{ p.facultad }} · {{ p.departamento }}</p>
+          <p class="text-xs text-muted mb-1">{{ p.modalidad || '—' }} · {{ p.horas_semana || '—' }} h/sem</p>
+          <div v-if="canManage" class="plaza-card-foot">
+            <span class="text-xs">{{ postulantesDe(p.id).length }} postulante{{ postulantesDe(p.id).length === 1 ? '' : 's' }}</span>
+            <span v-if="sinAsignarDe(p.id) > 0" class="badge badge-yellow">{{ sinAsignarDe(p.id) }} sin evaluador</span>
+            <span v-else-if="postulantesDe(p.id).length > 0" class="badge badge-green">Evaluador OK</span>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Tabla evaluación -->
+    <!-- Tabla evaluación — árbol de acordeón, no tablas anidadas -->
     <div v-else-if="tab === 'tabla'">
       <div v-if="conv.tabla_snapshot">
         <div class="alert alert-info mb-4">
           Esta convocatoria tiene un snapshot inmutable de la tabla de evaluación.
         </div>
-        <div v-for="rubro in conv.tabla_snapshot?.rubros" :key="rubro.nombre" class="card mb-3">
-          <div class="card-header">
-            <h3 class="card-title">{{ rubro.nombre }}</h3>
-            <span class="badge badge-blue">Tope: {{ rubro.puntaje_max_subrubro }} pts</span>
+        <AccordionSection
+          v-for="rubro in conv.tabla_snapshot.rubros"
+          :key="rubro.nombre"
+          :title="rubro.nombre"
+          :meta="`tope ${rubro.puntaje_max_subrubro} pts`"
+          :open="false"
+        >
+          <div v-for="v in rubro.variables" :key="v.id" class="requisito-row">
+            <div class="flex justify-between items-center">
+              <span class="font-medium text-sm">{{ v.nombre }}</span>
+              <div class="flex items-center gap-2">
+                <span class="badge badge-gray">{{ v.tipo_calculo }}</span>
+                <span class="text-sm font-medium">{{ v.puntaje_max }} pts</span>
+              </div>
+            </div>
           </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr><th>Variable</th><th>Tipo</th><th>Puntaje máx.</th></tr>
-              </thead>
-              <tbody>
-                <tr v-for="v in rubro.variables" :key="v.id">
-                  <td>{{ v.nombre }}</td>
-                  <td><span class="badge badge-gray">{{ v.tipo_calculo }}</span></td>
-                  <td>{{ v.puntaje_max }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        </AccordionSection>
       </div>
       <div v-else class="card">
         <div class="empty-state">
@@ -317,29 +312,17 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
           <h3>Sin postulantes todavía</h3>
         </div>
       </div>
-      <div v-else class="card" style="padding:0">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Postulante</th>
-                <th>Plaza</th>
-                <th>Enviada</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="p in todasPostulaciones" :key="p.id">
-                <td class="font-medium">{{ p.postulante?.name ?? p.user_id }}</td>
-                <td class="text-sm">{{ p.plaza?.asignatura ?? '—' }}</td>
-                <td class="text-sm">
-                  <span v-if="p.fecha_envio">{{ new Date(p.fecha_envio).toLocaleDateString('es-PE') }}</span>
-                  <span v-else class="badge badge-gray" style="font-size:0.7rem">Borrador</span>
-                </td>
-                <td><span class="badge" :class="postulacionEstadoBadge[p.estado] ?? 'badge-gray'">{{ p.estado }}</span></td>
-              </tr>
-            </tbody>
-          </table>
+      <div v-else>
+        <div v-for="p in todasPostulaciones" :key="p.id" class="list-row">
+          <div class="min-w-0">
+            <p class="font-medium text-sm truncate">{{ p.postulante?.name ?? p.user_id }}</p>
+            <p class="text-xs text-muted">{{ p.plaza?.asignatura ?? '—' }}</p>
+          </div>
+          <div class="flex items-center gap-2" style="flex-shrink:0">
+            <span v-if="p.fecha_envio" class="text-xs text-muted">{{ new Date(p.fecha_envio).toLocaleDateString('es-PE') }}</span>
+            <span v-else class="badge badge-gray" style="font-size:0.7rem">Borrador</span>
+            <span class="badge" :class="postulacionEstadoBadge[p.estado] ?? 'badge-gray'">{{ p.estado }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -351,36 +334,21 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
           <h3>Sin evaluaciones todavía</h3>
         </div>
       </div>
-      <div v-else class="card" style="padding:0">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Postulante</th>
-                <th>Evaluador</th>
-                <th>Puntaje</th>
-                <th>Estado</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="e in evaluacionesConv" :key="e.id">
-                <td class="font-medium">{{ e.postulacion?.postulante?.name ?? '—' }}</td>
-                <td class="text-sm">{{ e.evaluador?.name ?? '—' }}</td>
-                <td>
-                  <span v-if="e.puntaje_total" class="font-semibold" style="color:var(--clr-primary-700)">{{ e.puntaje_total }}</span>
-                  <span v-else class="text-muted">—</span>
-                </td>
-                <td><span class="badge" :class="evaluacionEstadoBadge[e.estado] ?? 'badge-gray'">{{ e.estado }}</span></td>
-                <td><RouterLink :to="`/evaluaciones/${e.id}`" class="btn btn-ghost btn-sm">Ver →</RouterLink></td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <div v-else>
+        <RouterLink v-for="e in evaluacionesConv" :key="e.id" :to="`/evaluaciones/${e.id}`" class="list-row" style="text-decoration:none;color:inherit">
+          <div class="min-w-0">
+            <p class="font-medium text-sm truncate">{{ e.postulacion?.postulante?.name ?? '—' }}</p>
+            <p class="text-xs text-muted">Evaluador: {{ e.evaluador?.name ?? '—' }}</p>
+          </div>
+          <div class="flex items-center gap-2" style="flex-shrink:0">
+            <span v-if="e.puntaje_total" class="font-semibold text-sm" style="color:var(--clr-primary-700)">{{ e.puntaje_total }} pts</span>
+            <span class="badge" :class="evaluacionEstadoBadge[e.estado] ?? 'badge-gray'">{{ e.estado }}</span>
+          </div>
+        </RouterLink>
       </div>
     </div>
 
-    <!-- Asignación de evaluadores -->
+    <!-- Asignación de evaluadores — split view con carga de trabajo -->
     <div v-else-if="tab === 'asignaciones'">
       <div v-if="postulaciones.length === 0" class="card">
         <div class="empty-state">
@@ -389,53 +357,55 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
         </div>
       </div>
 
-      <div v-else class="card" style="padding:0">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Postulante</th>
-                <th>Plaza</th>
-                <th>Evaluadores asignados</th>
-                <th>Asignar</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="p in postulaciones" :key="p.id">
-                <td class="font-medium">{{ p.postulante?.name ?? p.user_id }}</td>
-                <td class="text-sm">{{ p.plaza?.asignatura ?? '—' }}</td>
-                <td>
-                  <div v-if="asignacionesDe(p.id).length === 0" class="text-muted text-sm">Sin asignar</div>
-                  <div v-for="a in asignacionesDe(p.id)" :key="a.id" class="flex items-center gap-2 mb-1">
-                    <span class="badge badge-blue">{{ a.evaluador?.name ?? a.evaluador_id }}</span>
-                    <button
-                      class="btn btn-ghost btn-icon btn-sm"
-                      :disabled="quitando[a.id]"
-                      title="Quitar asignación"
-                      @click="quitarAsignacion(a.id)"
-                    ><Icon name="x" :size="14" /></button>
-                  </div>
-                </td>
-                <td>
-                  <div class="flex gap-2">
-                    <select v-model="evaluadorElegido[p.id]" class="form-control" style="min-width:180px">
-                      <option value="">Elegir evaluador...</option>
-                      <option v-for="e in evaluadores" :key="e.id" :value="e.id">{{ e.name }}</option>
-                    </select>
-                    <button
-                      class="btn btn-primary btn-sm"
-                      :disabled="!evaluadorElegido[p.id] || asignando[p.id]"
-                      @click="asignarEvaluador(p.id)"
-                    >
-                      <span v-if="asignando[p.id]" class="spinner"></span>
-                      Asignar
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <div v-else class="asignaciones-layout">
+        <div class="asignaciones-lista">
+          <h3 class="font-semibold mb-3" v-if="sinAsignar.length > 0">Sin asignar ({{ sinAsignar.length }})</h3>
+          <div v-for="p in sinAsignar" :key="p.id" class="card mb-3">
+            <p class="font-medium text-sm mb-2">{{ p.postulante?.name ?? p.user_id }} · {{ p.plaza?.asignatura ?? '—' }}</p>
+            <div class="flex gap-2">
+              <select v-model="evaluadorElegido[p.id]" class="form-control">
+                <option value="">Elegir evaluador...</option>
+                <option v-for="e in evaluadoresPorCarga" :key="e.id" :value="e.id">
+                  {{ e.name }} — {{ cargaDe(e.id) }} activa{{ cargaDe(e.id) === 1 ? '' : 's' }}
+                </option>
+              </select>
+              <button
+                class="btn btn-primary btn-sm"
+                :disabled="!evaluadorElegido[p.id] || asignando[p.id]"
+                @click="asignarA(p.id, evaluadorElegido[p.id])"
+              >
+                <span v-if="asignando[p.id]" class="spinner"></span>
+                Asignar
+              </button>
+            </div>
+          </div>
+
+          <h3 class="font-semibold mb-3 mt-4" v-if="sinAsignar.length < postulaciones.length">Ya asignadas</h3>
+          <div v-for="p in postulaciones.filter((p: any) => asignacionesDe(p.id).length > 0)" :key="p.id" class="card mb-3">
+            <p class="font-medium text-sm mb-2">{{ p.postulante?.name ?? p.user_id }} · {{ p.plaza?.asignatura ?? '—' }}</p>
+            <div class="flex items-center gap-2" style="flex-wrap:wrap">
+              <div v-for="a in asignacionesDe(p.id)" :key="a.id" class="flex items-center gap-2">
+                <span class="badge badge-blue">{{ a.evaluador?.name ?? a.evaluador_id }}</span>
+                <button
+                  class="btn btn-ghost btn-icon btn-sm"
+                  :disabled="quitando[a.id]"
+                  title="Quitar asignación"
+                  @click="quitarAsignacion(a.id)"
+                ><Icon name="x" :size="14" /></button>
+              </div>
+            </div>
+          </div>
         </div>
+
+        <aside class="asignaciones-carga">
+          <h3 class="font-semibold mb-3">Evaluadores — carga actual</h3>
+          <div v-for="e in evaluadoresPorCarga" :key="e.id" class="carga-row">
+            <span class="text-sm">{{ e.name }}</span>
+            <span class="text-xs" :class="cargaDe(e.id) === 0 ? 'text-muted' : ''">
+              {{ cargaDe(e.id) === 0 ? 'libre' : `${cargaDe(e.id)} activa${cargaDe(e.id) === 1 ? '' : 's'}` }}
+            </span>
+          </div>
+        </aside>
       </div>
     </div>
 
