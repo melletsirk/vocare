@@ -2,6 +2,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import PasswordInput from '@/components/ui/PasswordInput.vue'
 
 const router = useRouter()
 const route  = useRoute()
@@ -62,11 +63,9 @@ async function submit() {
 
           <div class="form-group mb-6">
             <label class="form-label" for="password">Contraseña</label>
-            <input
+            <PasswordInput
               id="password"
               v-model="form.password"
-              type="password"
-              class="form-control"
               placeholder="••••••••"
               autocomplete="current-password"
               required

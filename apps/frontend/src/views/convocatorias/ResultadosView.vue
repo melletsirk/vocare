@@ -3,6 +3,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
+import Icon from '@/components/ui/Icon.vue'
 
 const route = useRoute()
 const auth  = useAuthStore()
@@ -165,10 +166,11 @@ async function publicar() {
         @click="publicar"
       >
         <span v-if="publishing" class="spinner"></span>
-        📣 Publicar resultados
+        <Icon v-else name="send" :size="16" />
+        Publicar resultados
       </button>
       <span v-else-if="published" class="badge badge-green" style="font-size:0.875rem;padding:0.5rem 1rem">
-        ✅ Publicados
+        <Icon name="check-circle" :size="14" /> Publicados
       </span>
     </div>
 
@@ -265,8 +267,9 @@ async function publicar() {
             :key="`${plaza.id}-${posicionInicio}`"
             class="alert alert-warning mt-3"
           >
-            <p class="font-semibold mb-2">
-              ⚠️ Empate en la posición {{ posicionInicio }} — la comisión debe decidir el orden
+            <p class="font-semibold mb-2 flex items-center gap-2">
+              <Icon name="alert-triangle" :size="16" />
+              Empate en la posición {{ posicionInicio }} — la comisión debe decidir el orden
             </p>
             <p class="text-sm mb-3">
               Estos postulantes tienen el mismo puntaje. Ordénalos según la decisión de la
@@ -278,20 +281,24 @@ async function publicar() {
               <li
                 v-for="(r, idx) in ordenDe(plaza.id, posicionInicio, items)"
                 :key="r.id"
-                class="flex items-center gap-3 mb-2"
-                style="padding:0.5rem;border:1px solid var(--surface-border);border-radius:6px"
+                class="list-row"
               >
                 <span class="font-semibold">{{ posicionInicio + idx }}</span>
                 <div class="flex-1">
                   <div class="font-medium">{{ r.postulacion?.postulante?.name ?? '—' }}</div>
                   <div class="text-xs text-muted">Puntaje: {{ r.puntaje_total }}</div>
                 </div>
-                <button class="btn btn-ghost btn-sm" :disabled="idx === 0" @click="mover(plaza.id, posicionInicio, idx, -1)">↑</button>
+                <button class="btn btn-ghost btn-icon btn-sm" :disabled="idx === 0" title="Subir" @click="mover(plaza.id, posicionInicio, idx, -1)">
+                  <Icon name="arrow-up" :size="16" />
+                </button>
                 <button
-                  class="btn btn-ghost btn-sm"
+                  class="btn btn-ghost btn-icon btn-sm"
                   :disabled="idx === ordenDe(plaza.id, posicionInicio, items).length - 1"
+                  title="Bajar"
                   @click="mover(plaza.id, posicionInicio, idx, 1)"
-                >↓</button>
+                >
+                  <Icon name="arrow-down" :size="16" />
+                </button>
               </li>
             </ol>
 

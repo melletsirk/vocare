@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive } from 'vue'
 import api from '@/services/api'
+import Icon from '@/components/ui/Icon.vue'
+import { initials } from '@/utils/initials'
 
 const usuarios   = ref<any[]>([])
 const roles      = ref<any[]>([])
@@ -106,7 +108,12 @@ async function desactivar(user: any) {
           </thead>
           <tbody>
             <tr v-for="u in usuarios" :key="u.id">
-              <td><span class="font-medium">{{ u.name }}</span></td>
+              <td>
+                <div class="flex items-center gap-2">
+                  <div class="avatar-sm">{{ initials(u.name) }}</div>
+                  <span class="font-medium">{{ u.name }}</span>
+                </div>
+              </td>
               <td class="text-sm text-muted">{{ u.email }}</td>
               <td class="text-sm">{{ u.dni || '—' }}</td>
               <td>
@@ -136,7 +143,7 @@ async function desactivar(user: any) {
       <div class="modal">
         <div class="modal-header">
           <h2>Nuevo usuario</h2>
-          <button class="btn btn-ghost btn-icon" @click="showModal = false">✕</button>
+          <button class="btn btn-ghost btn-icon" @click="showModal = false"><Icon name="x" :size="18" /></button>
         </div>
         <div class="modal-body">
           <div v-if="error" class="alert alert-error mb-4">{{ error }}</div>
