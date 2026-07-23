@@ -1,18 +1,17 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/services/api'
+import Icon from '@/components/ui/Icon.vue'
+import ProgressCard from '@/components/ui/ProgressCard.vue'
 
-const router      = useRouter()
+const router       = useRouter()
 const evaluaciones = ref<any[]>([])
 const pendientes   = ref<any[]>([]) // asignaciones sin evaluación creada todavía
-const loading      = ref(true)
-const error        = ref('')
-const iniciando     = ref<number | null>(null) // postulacion_id en curso
-
-const estadoBadge: Record<string, string> = {
-  en_proceso: 'badge-yellow', completada: 'badge-blue', cerrada: 'badge-green',
-}
+const loading       = ref(true)
+const error         = ref('')
+const iniciando      = ref<number | null>(null) // postulacion_id en curso
+const mostrarCerradas = ref(false)
 
 onMounted(cargar)
 
@@ -49,6 +48,45 @@ async function iniciarEvaluacion(postulacionId: number) {
     iniciando.value = null
   }
 }
+
+// Ordenar por cercanía al cierre de la convocatoria — no por orden de
+// inserción en BD, que no comunica ninguna prioridad real.
+function diasParaCierre(fechaFin?: string | null): number | null {
+  if (!fechaFin) return null
+  return Math.ceil((new Date(fechaFin).getTime() - Date.now()) / 86400000)
+}
+
+function tonoPorFecha(fechaFin?: string | null): 'urgent' | 'default' {
+  const dias = diasParaCierre(fechaFin)
+  return dias !== null && dias <= 5 ? 'urgent' : 'default'
+}
+
+function metaAsignacion(a: any): string {
+  const base = `${a.postulacion?.plaza?.asignatura ?? '—'} · ${a.convocatoria?.codigo ?? '—'}`
+  const dias = diasParaCierre(a.convocatoria?.fecha_fin)
+  if (dias !== null && dias >= 0 && dias <= 5) return `${base} · convocatoria cierra en ${dias} día${dias === 1 ? '' : 's'}`
+  return base
+}
+
+function metaEvaluacion(ev: any): string {
+  const base = `${ev.postulacion?.plaza?.asignatura ?? '—'} · ${ev.postulacion?.convocatoria?.codigo ?? '—'}`
+  if (ev.estado === 'completada' && ev.puntaje_total !== null) return `${base} · calculado: ${ev.puntaje_total} pts — falta cerrar`
+  return `${base} · calificación en curso`
+}
+
+const pendientesOrdenadas = computed(() =>
+  [...pendientes.value].sort((a, b) =>
+    (diasParaCierre(a.convocatoria?.fecha_fin) ?? 999) - (diasParaCierre(b.convocatoria?.fecha_fin) ?? 999)
+  )
+)
+const enProgreso = computed(() =>
+  evaluaciones.value
+    .filter((e) => e.estado !== 'cerrada')
+    .sort((a, b) =>
+      (diasParaCierre(a.postulacion?.convocatoria?.fecha_fin) ?? 999) - (diasParaCierre(b.postulacion?.convocatoria?.fecha_fin) ?? 999)
+    )
+)
+const cerradas = computed(() => evaluaciones.value.filter((e) => e.estado === 'cerrada'))
 </script>
 
 <template>
@@ -73,77 +111,62 @@ async function iniciarEvaluacion(postulacionId: number) {
 
     <template v-else>
       <!-- Asignadas pero aún sin iniciar -->
-      <div v-if="pendientes.length > 0" class="card mb-4" style="padding:0">
-        <div class="card-header">
-          <h3 class="card-title">Asignadas — sin iniciar</h3>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Postulante</th>
-                <th>Plaza</th>
-                <th>Convocatoria</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="a in pendientes" :key="a.id">
-                <td class="font-medium">{{ a.postulacion?.postulante?.name ?? '—' }}</td>
-                <td class="text-sm">{{ a.postulacion?.plaza?.asignatura ?? '—' }}</td>
-                <td class="text-sm text-muted">{{ a.convocatoria?.codigo ?? '—' }}</td>
-                <td>
-                  <button
-                    class="btn btn-primary btn-sm"
-                    :disabled="iniciando === a.postulacion_id"
-                    @click="iniciarEvaluacion(a.postulacion_id)"
-                  >
-                    <span v-if="iniciando === a.postulacion_id" class="spinner"></span>
-                    Iniciar evaluación →
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <div v-if="pendientesOrdenadas.length > 0" class="mb-4">
+        <h3 class="bandeja-section-title">Sin iniciar ({{ pendientesOrdenadas.length }})</h3>
+        <ProgressCard
+          v-for="a in pendientesOrdenadas"
+          :key="a.id"
+          :title="a.postulacion?.postulante?.name ?? '—'"
+          :meta="metaAsignacion(a)"
+          :tone="tonoPorFecha(a.convocatoria?.fecha_fin)"
+        >
+          <template #action>
+            <button
+              class="btn btn-primary btn-sm"
+              :disabled="iniciando === a.postulacion_id"
+              @click="iniciarEvaluacion(a.postulacion_id)"
+            >
+              <span v-if="iniciando === a.postulacion_id" class="spinner"></span>
+              Iniciar evaluación →
+            </button>
+          </template>
+        </ProgressCard>
       </div>
 
-      <!-- Ya iniciadas -->
-      <div v-if="evaluaciones.length > 0" class="card" style="padding:0">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Postulante</th>
-                <th>Plaza</th>
-                <th>Convocatoria</th>
-                <th>Puntaje</th>
-                <th>Estado</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="ev in evaluaciones" :key="ev.id">
-                <td class="font-medium">{{ ev.postulacion?.postulante?.name ?? '—' }}</td>
-                <td class="text-sm">{{ ev.postulacion?.plaza?.asignatura ?? '—' }}</td>
-                <td class="text-sm text-muted">{{ ev.postulacion?.convocatoria?.codigo ?? '—' }}</td>
-                <td>
-                  <span v-if="ev.puntaje_total" class="font-semibold" style="color:var(--clr-primary-700)">
-                    {{ ev.puntaje_total }}
-                  </span>
-                  <span v-else class="text-muted">—</span>
-                </td>
-                <td>
-                  <span class="badge" :class="estadoBadge[ev.estado] || 'badge-gray'">{{ ev.estado }}</span>
-                </td>
-                <td>
-                  <RouterLink :to="`/evaluaciones/${ev.id}`" class="btn btn-ghost btn-sm">
-                    Calificar →
-                  </RouterLink>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+      <!-- Ya iniciadas, aún no cerradas -->
+      <div v-if="enProgreso.length > 0" class="mb-4">
+        <h3 class="bandeja-section-title">En progreso ({{ enProgreso.length }})</h3>
+        <ProgressCard
+          v-for="ev in enProgreso"
+          :key="ev.id"
+          :title="ev.postulacion?.postulante?.name ?? '—'"
+          :meta="metaEvaluacion(ev)"
+          :tone="tonoPorFecha(ev.postulacion?.convocatoria?.fecha_fin)"
+        >
+          <template #action>
+            <RouterLink :to="`/evaluaciones/${ev.id}`" class="btn btn-secondary btn-sm">Continuar →</RouterLink>
+          </template>
+        </ProgressCard>
+      </div>
+
+      <!-- Cerradas — colapsadas, ya no requieren acción -->
+      <div v-if="cerradas.length > 0">
+        <button type="button" class="bandeja-toggle" @click="mostrarCerradas = !mostrarCerradas">
+          <Icon :name="mostrarCerradas ? 'chevron-up' : 'chevron-down'" :size="14" />
+          Cerradas ({{ cerradas.length }})
+        </button>
+        <div v-if="mostrarCerradas" class="mt-2">
+          <ProgressCard
+            v-for="ev in cerradas"
+            :key="ev.id"
+            :title="ev.postulacion?.postulante?.name ?? '—'"
+            :meta="`${ev.postulacion?.plaza?.asignatura ?? '—'} · ${ev.postulacion?.convocatoria?.codigo ?? '—'} · ${ev.puntaje_total ?? '—'} pts`"
+            tone="success"
+          >
+            <template #action>
+              <RouterLink :to="`/evaluaciones/${ev.id}`" class="btn btn-ghost btn-sm">Ver →</RouterLink>
+            </template>
+          </ProgressCard>
         </div>
       </div>
     </template>

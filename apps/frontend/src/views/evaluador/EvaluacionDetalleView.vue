@@ -13,7 +13,7 @@ const postulacionEtapas = ref<any[]>([])
 const loading           = ref(true)
 const error             = ref('')
 const cerrando          = ref(false)
-const mostrarNavegador  = ref(false)
+const mostrarResumenCierre = ref(false)
 
 // ── Construcción de "pasos" (una variable a la vez, nunca tabla plana) ──────
 const pasos = computed(() => {
@@ -45,6 +45,22 @@ const pasos = computed(() => {
 
 const pasoActualIndex = ref(0)
 const pasoActual = computed(() => pasos.value[pasoActualIndex.value] ?? null)
+
+// ── Riel lateral — árbol rubro › variable, siempre visible. Reemplaza el
+// navegador desplegable: orienta sin competir con el foco de la variable
+// actual (design.md — "step indicators", periférico, no parte de la decisión).
+const rubrosRail = computed(() => {
+  const grupos: { nombre: string; items: { paso: any; index: number }[] }[] = []
+  pasos.value.forEach((paso, index) => {
+    let grupo = grupos.find((g) => g.nombre === paso.rubroNombre)
+    if (!grupo) {
+      grupo = { nombre: paso.rubroNombre, items: [] }
+      grupos.push(grupo)
+    }
+    grupo.items.push({ paso, index })
+  })
+  return grupos
+})
 
 onMounted(cargar)
 
@@ -84,11 +100,15 @@ function irA(index: number) {
   if (index >= 0 && index < pasos.value.length) pasoActualIndex.value = index
 }
 
-async function cerrarEvaluacion() {
-  if (!confirm('¿Cerrar la evaluación? Esta acción es irreversible.')) return
+// "Cerrar evaluación" abre una revisión final del checklist completo antes
+// de confirmar — es una acción irreversible, nunca se dispara desde un solo
+// botón suelto sin repaso previo (mismo principio que activar una tabla de
+// evaluación).
+async function confirmarCierre() {
   cerrando.value = true
   try {
     await api.post(`/evaluaciones/${id}/cerrar`)
+    mostrarResumenCierre.value = false
     await cargar()
   } catch (e: any) {
     error.value = e.response?.data?.message || 'Error al cerrar.'
@@ -323,12 +343,10 @@ const vigenciaLabel = (ev: any) => {
         <button
           v-if="evaluacion.estado !== 'cerrada' && evaluacion.puntaje_total !== null"
           class="btn btn-secondary btn-sm"
-          :disabled="cerrando"
-          @click="cerrarEvaluacion"
+          @click="mostrarResumenCierre = true"
         >
-          <span v-if="cerrando" class="spinner"></span>
-          <Icon v-else name="lock" :size="14" />
-          {{ cerrando ? 'Cerrando...' : 'Cerrar evaluación' }}
+          <Icon name="lock" :size="14" />
+          Cerrar evaluación
         </button>
         <span v-else-if="evaluacion.estado === 'cerrada'" class="badge badge-green">Cerrada</span>
       </div>
@@ -344,37 +362,35 @@ const vigenciaLabel = (ev: any) => {
     <template v-else>
       <!-- Progreso -->
       <div class="mb-3">
-        <div class="flex justify-between items-center mb-1">
-          <span class="text-sm text-muted">
-            Variable {{ pasoActualIndex + 1 }} de {{ pasos.length }}
-            (Rubro {{ pasoActual.rubroIndex }} de {{ pasoActual.rubroTotal }})
-          </span>
-          <button class="btn btn-ghost btn-sm" @click="mostrarNavegador = !mostrarNavegador">
-            {{ pasoActual.rubroNombre }} › {{ pasoActual.variable.nombre }}
-            <Icon :name="mostrarNavegador ? 'chevron-up' : 'chevron-down'" :size="14" />
-          </button>
-        </div>
-        <div class="progress-bar">
+        <span class="text-sm text-muted">
+          Variable {{ pasoActualIndex + 1 }} de {{ pasos.length }} — {{ pasoActual.rubroNombre }} › {{ pasoActual.variable.nombre }}
+        </span>
+        <div class="progress-bar mt-1">
           <div class="progress-fill" :style="{ width: ((pasoActualIndex + 1) / pasos.length * 100) + '%' }"></div>
         </div>
       </div>
 
-      <!-- Navegador expandible -->
-      <div v-if="mostrarNavegador" class="card mb-4" style="max-height:300px;overflow-y:auto">
-        <div v-for="(p, idx) in pasos" :key="idx"
-          class="flex items-center gap-2 mb-1"
-          style="cursor:pointer;padding:0.25rem 0.5rem;border-radius:4px"
-          :style="idx === pasoActualIndex ? 'background:var(--clr-primary-50)' : ''"
-          @click="irA(idx); mostrarNavegador = false"
-        >
-          <Icon v-if="p.puntajeRow" name="check-circle" :size="14" style="color:var(--clr-success-600)" />
-          <span v-else>{{ idx === pasoActualIndex ? '●' : '○' }}</span>
-          <span class="text-sm" :class="idx === pasoActualIndex ? 'font-semibold' : ''">
-            {{ p.rubroNombre }} › {{ p.variable.nombre }}
-          </span>
-        </div>
-      </div>
+      <div class="evaluacion-layout">
+        <!-- ══ RIEL — árbol rubro › variable, siempre visible, periférico ══ -->
+        <aside class="evaluacion-rail">
+          <div v-for="grupo in rubrosRail" :key="grupo.nombre" class="evaluacion-rail-group">
+            <div class="evaluacion-rail-group-title">{{ grupo.nombre }}</div>
+            <button
+              v-for="item in grupo.items"
+              :key="item.index"
+              type="button"
+              class="evaluacion-rail-item"
+              :class="{ 'is-current': item.index === pasoActualIndex }"
+              @click="irA(item.index)"
+            >
+              <Icon v-if="item.paso.puntajeRow" name="check-circle" :size="14" class="evaluacion-rail-icon" />
+              <span v-else class="evaluacion-rail-dot"></span>
+              <span class="truncate">{{ item.paso.variable.nombre }}</span>
+            </button>
+          </div>
+        </aside>
 
+        <div class="evaluacion-main">
       <!-- ══ FOCO DE VARIABLE — lo único que cambia por paso ══ -->
       <div class="card mb-4">
         <div class="card-header">
@@ -650,6 +666,39 @@ const vigenciaLabel = (ev: any) => {
           Siguiente variable →
         </button>
       </div>
+        </div>
+      </div>
     </template>
+
+    <!-- ══ Revisión final antes de cerrar — irreversible, nunca sin repaso ══ -->
+    <div v-if="mostrarResumenCierre" class="modal-overlay" @click.self="mostrarResumenCierre = false">
+      <div class="modal" style="max-width:640px">
+        <div class="modal-header">
+          <h2>Revisar antes de cerrar</h2>
+          <button class="btn btn-ghost btn-icon" @click="mostrarResumenCierre = false"><Icon name="x" :size="18" /></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-sm text-muted mb-3">
+            Cerrar la evaluación es irreversible — ya no podrás modificar puntajes.
+            Puntaje total: <strong style="color:var(--clr-gray-900)">{{ evaluacion.puntaje_total }}</strong>
+          </p>
+          <div class="cierre-resumen-list">
+            <div v-for="(p, idx) in pasos" :key="idx" class="cierre-resumen-item">
+              <span class="truncate">{{ p.rubroNombre }} › {{ p.variable.nombre }}</span>
+              <span class="font-medium" :class="{ 'text-muted': !p.puntajeRow }">
+                {{ p.puntajeRow ? `${p.puntajeRow.puntaje_variable} pts` : 'Sin calificar' }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="mostrarResumenCierre = false">Cancelar</button>
+          <button class="btn btn-primary" :disabled="cerrando" @click="confirmarCierre">
+            <span v-if="cerrando" class="spinner"></span>
+            {{ cerrando ? 'Cerrando...' : 'Confirmar y cerrar' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

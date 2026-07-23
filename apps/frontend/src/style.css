@@ -841,6 +841,89 @@ tbody td { padding: 0.875rem 1rem; font-size: var(--text-sm); vertical-align: mi
 }
 .progress-card-action { flex-shrink: 0; }
 
+.bandeja-section-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--clr-gray-600);
+  margin-bottom: 0.6rem;
+}
+.bandeja-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: none;
+  padding: 0.4rem 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--clr-gray-500);
+  transition: color var(--transition-fast);
+}
+.bandeja-toggle:hover { color: var(--clr-gray-800); }
+
+/* ===================================================================
+   Evaluación paso a paso — riel lateral con el árbol rubro › variable,
+   siempre visible. Periférico: solo orienta, nunca compite con la
+   decisión (que sigue viviendo únicamente en la card central).
+=================================================================== */
+.evaluacion-layout { display: flex; gap: 1.75rem; align-items: flex-start; }
+.evaluacion-rail {
+  width: 230px;
+  flex-shrink: 0;
+  max-height: calc(100vh - 170px);
+  overflow-y: auto;
+  position: sticky;
+  top: 88px;
+  padding-right: 0.25rem;
+}
+.evaluacion-main { flex: 1; min-width: 0; }
+.evaluacion-rail-group { margin-bottom: 1.1rem; }
+.evaluacion-rail-group-title {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--clr-gray-400);
+  padding: 0 0.6rem;
+  margin-bottom: 0.3rem;
+}
+.evaluacion-rail-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--clr-gray-600);
+  border: none;
+  background: transparent;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.evaluacion-rail-item:hover { background: var(--clr-gray-100); }
+.evaluacion-rail-item.is-current { background: var(--clr-primary-50); color: var(--clr-primary-700); font-weight: 600; }
+.evaluacion-rail-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--clr-gray-300); flex-shrink: 0; margin: 0 4px; }
+.evaluacion-rail-item.is-current .evaluacion-rail-dot { background: var(--clr-primary-600); }
+.evaluacion-rail-icon { color: var(--clr-success-600); flex-shrink: 0; }
+
+@media (max-width: 900px) {
+  .evaluacion-layout { flex-direction: column; }
+  .evaluacion-rail { width: 100%; max-height: 220px; position: static; }
+}
+
+/* Revisión final antes de cerrar una evaluación */
+.cierre-resumen-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--surface-border); border-radius: var(--radius-md); }
+.cierre-resumen-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--surface-border);
+  font-size: var(--text-sm);
+}
+.cierre-resumen-item:last-child { border-bottom: none; }
+
 /* ===================================================================
    Postulación card (Mis postulaciones) — reemplaza la fila de tabla:
    título, stepper de avance, progreso del expediente y siguiente paso.
