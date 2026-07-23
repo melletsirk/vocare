@@ -96,12 +96,9 @@ async function handleLogout() {
     <!-- ── Main content ──────────────────────────────────────────── -->
     <main class="main-content">
       <header class="topbar">
-        <div class="flex items-center gap-3">
-          <button class="hamburger-btn" aria-label="Abrir menú" @click="sidebarOpen = !sidebarOpen">
-            <Icon name="menu" />
-          </button>
-          <div class="topbar-title">Vocare — Sistema de Convocatorias</div>
-        </div>
+        <button class="hamburger-btn" aria-label="Abrir menú" @click="sidebarOpen = !sidebarOpen">
+          <Icon name="menu" />
+        </button>
         <span class="badge badge-blue">{{ ROL_LABEL[auth.rol ?? ''] ?? auth.rol }}</span>
       </header>
 

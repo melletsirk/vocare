@@ -3,6 +3,7 @@ import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
+import PasswordInput from '@/components/ui/PasswordInput.vue'
 
 const router = useRouter()
 const auth   = useAuthStore()
@@ -96,11 +97,9 @@ async function registrar() {
           <div class="grid-2 mb-6">
             <div class="form-group">
               <label class="form-label">Contraseña <span class="required">*</span></label>
-              <input
+              <PasswordInput
                 v-model="form.password"
-                type="password"
-                class="form-control"
-                :class="{ error: errors.password }"
+                :error="!!errors.password"
                 placeholder="Mín. 8 caracteres"
                 autocomplete="new-password"
               />
@@ -108,10 +107,8 @@ async function registrar() {
             </div>
             <div class="form-group">
               <label class="form-label">Confirmar contraseña <span class="required">*</span></label>
-              <input
+              <PasswordInput
                 v-model="form.password_confirmation"
-                type="password"
-                class="form-control"
                 placeholder="Repetir contraseña"
                 autocomplete="new-password"
               />

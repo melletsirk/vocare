@@ -188,25 +188,25 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
     <!-- Info rápida -->
     <div class="stats-grid mb-4">
       <div class="stat-card">
-        <div class="stat-icon" style="background:#eff6ff;color:#2563eb"><Icon name="clipboard" :size="22" /></div>
+        <div class="stat-icon" style="background:#EEF1EE;color:#3A423E"><Icon name="clipboard" :size="22" /></div>
         <div><div class="stat-value">{{ plazas.length }}</div><div class="stat-label">Plazas</div></div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:#f0fdf4;color:#16a34a"><Icon name="check-circle" :size="22" /></div>
+        <div class="stat-icon" style="background:#EDF5EE;color:#3B7548"><Icon name="check-circle" :size="22" /></div>
         <div>
           <div class="stat-value">{{ plazas.filter(p => p.estado === 'cubierta').length }}</div>
           <div class="stat-label">Cubiertas</div>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:#fffbeb;color:#d97706"><Icon name="calendar" :size="22" /></div>
+        <div class="stat-icon" style="background:#EEF1EE;color:#525C57"><Icon name="calendar" :size="22" /></div>
         <div>
           <div class="stat-value">{{ new Date(conv.fecha_inicio).toLocaleDateString('es-PE') }}</div>
           <div class="stat-label">Inicio</div>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:#fef2f2;color:#dc2626"><Icon name="flag" :size="22" /></div>
+        <div class="stat-icon" style="background:#F7F0E4;color:#AD8130"><Icon name="flag" :size="22" /></div>
         <div>
           <div class="stat-value">{{ new Date(conv.fecha_fin).toLocaleDateString('es-PE') }}</div>
           <div class="stat-label">Fin</div>

@@ -1,74 +1,81 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap');
 
 /* ===================================================================
    VOCARE — Design System
    Sistema de Convocatorias Docentes
+
+   Dirección: alejarse del "azul SaaS + sidebar navy" genérico. Acento
+   único (petróleo institucional), neutros con sesgo verdoso hacia ese
+   acento en vez de gris puro, y una familia semántica (éxito/alerta/
+   error) deliberadamente distinta del acento para que "esto es
+   interactivo" y "esto es un estado" nunca se confundan.
 =================================================================== */
 
 :root {
-  /* Paleta principal — Azul institucional profundo */
-  --clr-primary-50:  #eff6ff;
-  --clr-primary-100: #dbeafe;
-  --clr-primary-200: #bfdbfe;
-  --clr-primary-300: #93c5fd;
-  --clr-primary-400: #60a5fa;
-  --clr-primary-500: #3b82f6;
-  --clr-primary-600: #2563eb;
-  --clr-primary-700: #1d4ed8;
-  --clr-primary-800: #1e40af;
-  --clr-primary-900: #1e3a8a;
+  /* Acento — petróleo institucional. Única fuente de "esto se puede tocar". */
+  --clr-primary-50:  #EAF1F2;
+  --clr-primary-100: #D3E3E6;
+  --clr-primary-200: #A9C9CE;
+  --clr-primary-300: #7BADB5;
+  --clr-primary-400: #4C8D98;
+  --clr-primary-500: #2F6F7F;
+  --clr-primary-600: #245A69;
+  --clr-primary-700: #1B4653;
+  --clr-primary-800: #143540;
+  --clr-primary-900: #0E262E;
 
-  /* Secundario — Índigo para acciones de evaluación */
-  --clr-secondary-500: #6366f1;
-  --clr-secondary-600: #4f46e5;
-  --clr-secondary-700: #4338ca;
+  /* Secundario — terracota apagado, uso puntual (énfasis en evaluación) */
+  --clr-secondary-500: #B97A46;
+  --clr-secondary-600: #A2652F;
+  --clr-secondary-700: #8A5326;
 
-  /* Neutros */
-  --clr-gray-50:  #f9fafb;
-  --clr-gray-100: #f3f4f6;
-  --clr-gray-200: #e5e7eb;
-  --clr-gray-300: #d1d5db;
-  --clr-gray-400: #9ca3af;
-  --clr-gray-500: #6b7280;
-  --clr-gray-600: #4b5563;
-  --clr-gray-700: #374151;
-  --clr-gray-800: #1f2937;
-  --clr-gray-900: #111827;
+  /* Neutros — sesgo verde-grisáceo hacia el acento, nunca gris puro */
+  --clr-gray-50:  #F7F8F7;
+  --clr-gray-100: #EEF1EF;
+  --clr-gray-200: #DEE4E1;
+  --clr-gray-300: #C3CCC8;
+  --clr-gray-400: #97A29D;
+  --clr-gray-500: #6F7A75;
+  --clr-gray-600: #525C57;
+  --clr-gray-700: #3A423E;
+  --clr-gray-800: #242A26;
+  --clr-gray-900: #161A17;
 
-  /* Semánticos */
-  --clr-success-50:  #f0fdf4;
-  --clr-success-500: #22c55e;
-  --clr-success-600: #16a34a;
-  --clr-success-700: #15803d;
+  /* Semánticos — familia propia, deliberadamente distinta del acento */
+  --clr-success-50:  #EDF5EE;
+  --clr-success-500: #4C8F5D;
+  --clr-success-600: #3B7548;
+  --clr-success-700: #2E5D39;
 
-  --clr-warning-50:  #fffbeb;
-  --clr-warning-500: #f59e0b;
-  --clr-warning-600: #d97706;
+  --clr-warning-50:  #F7F0E4;
+  --clr-warning-500: #C4923F;
+  --clr-warning-600: #AD8130;
 
-  --clr-danger-50:  #fef2f2;
-  --clr-danger-500: #ef4444;
-  --clr-danger-600: #dc2626;
-  --clr-danger-700: #b91c1c;
+  --clr-danger-50:  #F8ECEA;
+  --clr-danger-500: #BC6558;
+  --clr-danger-600: #A0453A;
+  --clr-danger-700: #863A31;
 
-  --clr-info-50:  #f0f9ff;
-  --clr-info-500: #0ea5e9;
-  --clr-info-600: #0284c7;
+  --clr-info-50:  #EEF2F5;
+  --clr-info-500: #6B87A0;
+  --clr-info-600: #51698A;
 
   /* Surface */
-  --surface-bg:      #f8fafc;
-  --surface-card:    #ffffff;
-  --surface-sidebar: #0f172a;
+  --surface-bg:      #FAFAF8;
+  --surface-card:    #FFFFFF;
+  --surface-sidebar: #FCFCFA;
   --surface-border:  var(--clr-gray-200);
 
-  /* Tipografía */
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  /* Tipografía — Newsreader (serif editorial) para títulos, Inter para interfaz */
+  --font-sans:    'Inter', system-ui, -apple-system, sans-serif;
+  --font-display: 'Newsreader', ui-serif, Georgia, 'Iowan Old Style', serif;
   --text-xs:   0.75rem;
   --text-sm:   0.875rem;
   --text-base: 1rem;
   --text-lg:   1.125rem;
-  --text-xl:   1.25rem;
-  --text-2xl:  1.5rem;
-  --text-3xl:  1.875rem;
+  --text-xl:   1.3rem;
+  --text-2xl:  1.65rem;
+  --text-3xl:  2.1rem;
 
   /* Espaciado */
   --radius-sm: 0.375rem;
@@ -77,11 +84,11 @@
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
 
-  /* Sombras */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  /* Sombras — más planas, la jerarquía la da el borde, no la sombra */
+  --shadow-sm: 0 1px 2px 0 rgb(22 26 23 / 0.04);
+  --shadow-md: 0 2px 8px -2px rgb(22 26 23 / 0.08);
+  --shadow-lg: 0 8px 24px -6px rgb(22 26 23 / 0.12);
+  --shadow-xl: 0 16px 40px -8px rgb(22 26 23 / 0.16);
 
   /* Transiciones */
   --transition-fast: 150ms ease;
@@ -115,16 +122,19 @@ button { cursor: pointer; font-family: inherit; }
 input, select, textarea { font-family: inherit; }
 
 /* ===================================================================
-   Typography
+   Typography — Newsreader para jerarquía editorial, Inter para el resto
 =================================================================== */
 h1, h2, h3, h4, h5, h6 {
-  font-weight: 600;
-  line-height: 1.25;
+  font-family: var(--font-display);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
   color: var(--clr-gray-900);
+  text-wrap: balance;
 }
 h1 { font-size: var(--text-3xl); }
 h2 { font-size: var(--text-2xl); }
-h3 { font-size: var(--text-xl); }
+h3 { font-size: var(--text-xl); font-weight: 600; font-family: var(--font-sans); letter-spacing: 0; }
 
 /* ===================================================================
    Buttons
@@ -226,6 +236,28 @@ h3 { font-size: var(--text-xl); }
 .form-error { font-size: var(--text-xs); color: var(--clr-danger-600); }
 .form-hint  { font-size: var(--text-xs); color: var(--clr-gray-500); }
 
+/* Campo de contraseña con toggle mostrar/ocultar */
+.password-field { position: relative; }
+.password-field .form-control { padding-right: 2.5rem; }
+.password-toggle {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem; height: 1.75rem;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--clr-gray-400);
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+.password-toggle:hover { color: var(--clr-gray-600); background: var(--clr-gray-100); }
+.login-card .password-toggle { color: rgba(255,255,255,0.4); }
+.login-card .password-toggle:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.08); }
+
 /* ===================================================================
    Badges / Status
 =================================================================== */
@@ -243,7 +275,7 @@ h3 { font-size: var(--text-xl); }
 .badge-yellow  { background: var(--clr-warning-50);  color: var(--clr-warning-600); }
 .badge-red     { background: var(--clr-danger-50);   color: var(--clr-danger-700); }
 .badge-gray    { background: var(--clr-gray-100);    color: var(--clr-gray-600); }
-.badge-indigo  { background: #eef2ff;                color: var(--clr-secondary-700); }
+.badge-indigo  { background: #F7EDE2;                color: var(--clr-secondary-700); }
 
 /* ===================================================================
    Table
@@ -295,10 +327,11 @@ tbody td { padding: 0.875rem 1rem; font-size: var(--text-sm); vertical-align: mi
   min-height: 100vh;
 }
 
-/* Sidebar */
+/* Sidebar — rail claro y silencioso, no bloque navy sólido */
 .sidebar {
   width: var(--sidebar-width);
   background: var(--surface-sidebar);
+  border-right: 1px solid var(--surface-border);
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -308,26 +341,26 @@ tbody td { padding: 0.875rem 1rem; font-size: var(--text-sm); vertical-align: mi
 }
 .sidebar-logo {
   padding: 1.5rem 1.25rem;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  border-bottom: 1px solid var(--surface-border);
   display: flex;
   align-items: center;
   gap: 0.75rem;
 }
 .sidebar-logo-mark {
-  width: 36px; height: 36px;
+  width: 34px; height: 34px;
   background: var(--clr-primary-600);
   border-radius: var(--radius-md);
   display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: var(--text-lg); color: #fff;
+  font-family: var(--font-display); font-weight: 600; font-size: var(--text-lg); color: #fff;
 }
-.sidebar-logo-text { color: #fff; font-weight: 600; font-size: var(--text-base); line-height: 1.2; }
-.sidebar-logo-sub  { color: rgba(255,255,255,0.4); font-size: var(--text-xs); }
+.sidebar-logo-text { color: var(--clr-gray-900); font-family: var(--font-display); font-weight: 600; font-size: var(--text-base); line-height: 1.2; }
+.sidebar-logo-sub  { color: var(--clr-gray-400); font-size: var(--text-xs); }
 
 .sidebar-nav { flex: 1; padding: 1rem 0.75rem; overflow-y: auto; }
 .nav-section-label {
   font-size: 0.6875rem;
   font-weight: 600;
-  color: rgba(255,255,255,0.3);
+  color: var(--clr-gray-400);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   padding: 0 0.5rem;
@@ -340,17 +373,18 @@ tbody td { padding: 0.875rem 1rem; font-size: var(--text-sm); vertical-align: mi
   padding: 0.5rem 0.75rem;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
-  color: rgba(255,255,255,0.6);
+  color: var(--clr-gray-600);
+  border-left: 2px solid transparent;
   transition: all var(--transition-fast);
   margin-bottom: 2px;
 }
-.nav-item:hover   { background: rgba(255,255,255,0.07); color: #fff; }
-.nav-item.active  { background: var(--clr-primary-600); color: #fff; }
+.nav-item:hover   { background: var(--clr-gray-100); color: var(--clr-gray-900); }
+.nav-item.active  { background: var(--clr-primary-50); color: var(--clr-primary-700); border-left-color: var(--clr-primary-600); font-weight: 500; }
 .nav-item svg     { width: 18px; height: 18px; flex-shrink: 0; }
 
 .sidebar-footer {
   padding: 0.75rem;
-  border-top: 1px solid rgba(255,255,255,0.08);
+  border-top: 1px solid var(--surface-border);
 }
 .user-menu {
   display: flex;
@@ -361,17 +395,18 @@ tbody td { padding: 0.875rem 1rem; font-size: var(--text-sm); vertical-align: mi
   cursor: pointer;
   transition: background var(--transition-fast);
 }
-.user-menu:hover { background: rgba(255,255,255,0.07); }
+.user-menu:hover { background: var(--clr-gray-100); }
 .user-avatar {
   width: 34px; height: 34px;
-  background: var(--clr-primary-600);
+  background: var(--clr-primary-100);
+  color: var(--clr-primary-700);
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: var(--text-sm); font-weight: 600; color: #fff;
+  font-size: var(--text-sm); font-weight: 600;
   flex-shrink: 0;
 }
-.user-name  { font-size: var(--text-sm); font-weight: 500; color: #fff; line-height: 1.2; }
-.user-role  { font-size: var(--text-xs); color: rgba(255,255,255,0.4); }
+.user-name  { font-size: var(--text-sm); font-weight: 500; color: var(--clr-gray-900); line-height: 1.2; }
+.user-role  { font-size: var(--text-xs); color: var(--clr-gray-400); }
 
 /* Main content */
 .main-content {
@@ -387,17 +422,20 @@ tbody td { padding: 0.875rem 1rem; font-size: var(--text-sm); vertical-align: mi
   border-bottom: 1px solid var(--surface-border);
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 0 1.5rem;
   position: sticky;
   top: 0;
   z-index: 50;
 }
+/* El badge de rol siempre queda a la derecha, con o sin el botón hamburguesa
+   (oculto en desktop) presente en el flujo. */
+.topbar > .badge { margin-left: auto; }
 .page-content { padding: 1.5rem; flex: 1; }
 .topbar-title {
+  font-family: var(--font-display);
   font-size: var(--text-base);
-  font-weight: 600;
-  color: var(--clr-gray-800);
+  font-weight: 500;
+  color: var(--clr-gray-600);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -668,12 +706,142 @@ tbody td { padding: 0.875rem 1rem; font-size: var(--text-sm); vertical-align: mi
 }
 
 /* ===================================================================
+   Stepper — indicador de avance horizontal (postulación, convocatoria).
+   Reemplaza al badge de estado como elemento principal donde el progreso
+   importa más que la etiqueta puntual.
+=================================================================== */
+.stepper { display: flex; list-style: none; padding: 0; margin: 0; }
+.stepper-item {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+}
+.stepper-item:not(:first-child)::before {
+  content: '';
+  position: absolute;
+  top: 6px;
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--clr-gray-200);
+  z-index: 0;
+}
+.stepper-item.is-done:not(:first-child)::before,
+.stepper-item.is-current:not(:first-child)::before { background: var(--clr-primary-300); }
+.stepper-item.is-error:not(:first-child)::before { background: var(--clr-danger-500); }
+.stepper-dot {
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  border: 2px solid var(--clr-gray-300);
+  background: var(--surface-card);
+  z-index: 1;
+}
+.stepper-item.is-done .stepper-dot { background: var(--clr-primary-600); border-color: var(--clr-primary-600); }
+.stepper-item.is-current .stepper-dot {
+  background: var(--surface-card);
+  border-color: var(--clr-primary-600);
+  box-shadow: 0 0 0 3px var(--clr-primary-100);
+}
+.stepper-item.is-error .stepper-dot { background: var(--clr-danger-600); border-color: var(--clr-danger-600); }
+.stepper-label {
+  font-size: var(--text-xs);
+  color: var(--clr-gray-400);
+  text-align: center;
+  white-space: nowrap;
+}
+.stepper-item.is-done .stepper-label { color: var(--clr-gray-600); }
+.stepper-item.is-current .stepper-label { color: var(--clr-primary-700); font-weight: 600; }
+.stepper-item.is-error .stepper-label { color: var(--clr-danger-600); font-weight: 600; }
+
+/* ===================================================================
+   Accordion — sección colapsable (rubro/variable). Colapsada por
+   defecto salvo la primera incompleta — progressive disclosure real,
+   no una lista plana con todo expandido.
+=================================================================== */
+.accordion {
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-card);
+  overflow: hidden;
+}
+.accordion + .accordion { margin-top: 0.6rem; }
+.accordion-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.9rem 1.1rem;
+  background: transparent;
+  border: none;
+  text-align: left;
+  transition: background var(--transition-fast);
+}
+.accordion-trigger:hover { background: var(--clr-gray-50); }
+.accordion-chevron { color: var(--clr-gray-400); flex-shrink: 0; }
+.accordion-title { font-size: var(--text-sm); font-weight: 600; color: var(--clr-gray-900); }
+.accordion-meta { font-size: var(--text-xs); color: var(--clr-gray-500); margin-left: 0.25rem; }
+.accordion-status { margin-left: auto; flex-shrink: 0; }
+.accordion-status.status-done { color: var(--clr-success-600); }
+.accordion-status.status-warn { color: var(--clr-warning-600); }
+.accordion-status.status-info { color: var(--clr-info-600); }
+.accordion-body {
+  padding: 0 1.1rem 1.1rem;
+  border-top: 1px solid var(--surface-border);
+  padding-top: 0.9rem;
+}
+.accordion.is-open .accordion-trigger { border-bottom: 1px solid transparent; }
+
+/* ===================================================================
+   Progress card — fila de una cola de trabajo (bandeja, postulaciones):
+   título + meta + progreso opcional + una sola acción. Nunca una tabla
+   para un listado de trabajo pendiente.
+=================================================================== */
+.progress-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1rem 1.15rem;
+  background: var(--surface-card);
+  border: 1px solid var(--surface-border);
+  border-left: 3px solid var(--clr-gray-200);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--transition-base), border-color var(--transition-base);
+}
+.progress-card:hover { box-shadow: var(--shadow-md); }
+.progress-card + .progress-card { margin-top: 0.6rem; }
+.progress-card.tone-urgent { border-left-color: var(--clr-warning-500); }
+.progress-card.tone-success { border-left-color: var(--clr-success-500); }
+.progress-card-body { min-width: 0; }
+.progress-card-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--clr-gray-900);
+  margin: 0;
+}
+.progress-card-meta { font-size: var(--text-xs); color: var(--clr-gray-500); margin: 0.2rem 0 0; }
+.progress-card-track { display: flex; align-items: center; gap: 0.65rem; margin-top: 0.55rem; max-width: 280px; }
+.progress-card-track .progress-bar { flex: 1; }
+.progress-card-track-label {
+  font-size: var(--text-xs);
+  color: var(--clr-gray-500);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.progress-card-action { flex-shrink: 0; }
+
+/* ===================================================================
    Login page
 =================================================================== */
 .login-page {
   min-height: 100vh;
   display: flex;
-  background: linear-gradient(135deg, var(--clr-primary-900) 0%, #0f172a 60%, #1e1b4b 100%);
+  background: linear-gradient(135deg, var(--clr-primary-900) 0%, #101613 60%, #1B2A22 100%);
 }
 .login-panel {
   width: 100%;
