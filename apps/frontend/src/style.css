@@ -503,6 +503,23 @@ tbody td { padding: 0.875rem 1rem; font-size: var(--text-sm); vertical-align: mi
 .page-header p  { font-size: var(--text-sm); color: var(--clr-gray-500); margin-top: 0.25rem; }
 
 /* ===================================================================
+   Filter chips — alternativa a un <select> cuando las opciones son pocas
+   y conviene verlas todas a la vez (ej. filtro de estado).
+=================================================================== */
+.filter-chips { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.filter-chip {
+  padding: 0.35rem 0.85rem;
+  border-radius: 9999px;
+  border: 1px solid var(--surface-border);
+  background: var(--surface-card);
+  color: var(--clr-gray-600);
+  font-size: var(--text-sm);
+  transition: all var(--transition-fast);
+}
+.filter-chip:hover { border-color: var(--clr-gray-300); color: var(--clr-gray-800); }
+.filter-chip.active { background: var(--clr-primary-600); border-color: var(--clr-primary-600); color: #fff; font-weight: 500; }
+
+/* ===================================================================
    Tabs
 =================================================================== */
 .tabs {
@@ -882,6 +899,19 @@ tbody td { padding: 0.875rem 1rem; font-size: var(--text-sm); vertical-align: mi
   .evaluacion-layout { flex-direction: column; }
   .evaluacion-rail { width: 100%; max-height: 220px; position: static; }
 }
+
+/* Revisión — resumen de datos antes de confirmar un paso final de wizard */
+.revision-list { border: 1px solid var(--surface-border); border-radius: var(--radius-md); }
+.revision-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 0.9rem;
+  border-bottom: 1px solid var(--surface-border);
+  font-size: var(--text-sm);
+}
+.revision-row:last-child { border-bottom: none; }
+.revision-row > span:last-child { text-align: right; }
 
 /* Revisión final antes de cerrar una evaluación */
 .cierre-resumen-list { max-height: 320px; overflow-y: auto; border: 1px solid var(--surface-border); border-radius: var(--radius-md); }
