@@ -569,36 +569,6 @@ tbody td { padding: 0.875rem 1rem; font-size: var(--text-sm); vertical-align: mi
 .req-card.req-etapa     { border-left-color: var(--clr-info-500); }
 
 /* ===================================================================
-   Stats / KPI cards
-=================================================================== */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-.stat-card {
-  background: var(--surface-card);
-  border: 1px solid var(--surface-border);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow var(--transition-base);
-}
-.stat-card:hover { box-shadow: var(--shadow-md); }
-.stat-icon {
-  width: 48px; height: 48px;
-  border-radius: var(--radius-md);
-  display: flex; align-items: center; justify-content: center;
-  flex-shrink: 0;
-}
-.stat-value { font-size: var(--text-2xl); font-weight: 700; color: var(--clr-gray-900); }
-.stat-label { font-size: var(--text-sm); color: var(--clr-gray-500); margin-top: 0.125rem; }
-
-/* ===================================================================
    Avatar (iniciales) — identifica personas en tablas/listas sin foto.
 =================================================================== */
 .avatar-sm {
@@ -1049,6 +1019,86 @@ tbody td { padding: 0.875rem 1rem; font-size: var(--text-sm); vertical-align: mi
 .sub-minimo-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; flex: 1; }
 .sub-minimo-chip { border: none; cursor: pointer; }
 .sub-minimo-chip:disabled { cursor: default; opacity: 0.7; }
+
+/* ===================================================================
+   Command palette (⌘K) — navegación rápida global.
+=================================================================== */
+kbd {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.68rem;
+  color: var(--clr-gray-500);
+  background: var(--clr-gray-100);
+  border: 1px solid var(--clr-gray-200);
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  flex-shrink: 0;
+}
+.command-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--clr-gray-50);
+  border: 1px solid var(--surface-border);
+  border-radius: var(--radius-md);
+  padding: 0.4rem 0.6rem;
+  color: var(--clr-gray-500);
+  font-size: var(--text-sm);
+  transition: border-color var(--transition-fast), color var(--transition-fast);
+}
+.command-trigger:hover { border-color: var(--clr-gray-300); color: var(--clr-gray-700); }
+
+.command-overlay { align-items: flex-start; padding-top: 12vh; }
+.command-palette {
+  width: 100%;
+  max-width: 560px;
+  background: var(--surface-card);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  animation: slideUp var(--transition-base) ease;
+}
+.command-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.9rem 1.1rem;
+  border-bottom: 1px solid var(--surface-border);
+}
+.command-input-icon { color: var(--clr-gray-400); flex-shrink: 0; }
+.command-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: var(--text-base);
+  background: transparent;
+  color: var(--clr-gray-900);
+}
+.command-results { max-height: 360px; overflow-y: auto; padding: 0.5rem; }
+.command-result {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-md);
+  color: var(--clr-gray-700);
+  font-size: var(--text-sm);
+}
+.command-result.is-selected { background: var(--clr-primary-50); color: var(--clr-primary-700); }
+.command-result-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.command-result-sublabel { font-size: var(--text-xs); color: var(--clr-gray-400); flex-shrink: 0; }
+.command-empty { padding: 1.5rem; text-align: center; color: var(--clr-gray-400); font-size: var(--text-sm); }
+
+.feed-footer {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--surface-border);
+  font-size: var(--text-sm);
+  color: var(--clr-gray-500);
+}
 
 /* ===================================================================
    Login page

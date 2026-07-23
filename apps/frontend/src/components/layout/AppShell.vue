@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import Icon from '@/components/ui/Icon.vue'
+import CommandPalette from '@/components/ui/CommandPalette.vue'
 import { initials as getInitials } from '@/utils/initials'
 
 const auth   = useAuthStore()
@@ -17,10 +18,13 @@ watch(() => route.path, () => { sidebarOpen.value = false })
 // ── Navegación por rol ───────────────────────────────────────────────────────
 const navItems = computed(() => {
   const rol   = auth.rol
-  const items = [
-    { to: '/dashboard',     label: 'Dashboard',     icon: 'grid' },
-    { to: '/convocatorias', label: 'Convocatorias', icon: 'clipboard' },
-  ]
+  const items = []
+  // Dashboard es el feed accionable del admin — evaluador y postulante
+  // aterrizan directo en su cola de trabajo, no necesitan esta entrada.
+  if (rol === 'admin') {
+    items.push({ to: '/dashboard', label: 'Dashboard', icon: 'grid' })
+  }
+  items.push({ to: '/convocatorias', label: 'Convocatorias', icon: 'clipboard' })
   if (rol === 'postulante') {
     items.push({ to: '/mis-postulaciones', label: 'Mis Postulaciones', icon: 'file-text' })
   }
@@ -100,6 +104,7 @@ async function handleLogout() {
         <button class="hamburger-btn" aria-label="Abrir menú" @click="sidebarOpen = !sidebarOpen">
           <Icon name="menu" />
         </button>
+        <CommandPalette />
         <span class="badge badge-blue">{{ ROL_LABEL[auth.rol ?? ''] ?? auth.rol }}</span>
       </header>
 
