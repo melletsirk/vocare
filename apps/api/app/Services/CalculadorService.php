@@ -41,6 +41,18 @@ class CalculadorService
             throw new \RuntimeException('La convocatoria no tiene snapshot de tabla de evaluación.');
         }
 
+        // TABLA_EQUIVALENCIA no se deriva de evidencias: depende de un
+        // valor_entrada que el evaluador guardó antes por separado
+        // (POST .../puntajes, ver guardarPuntaje). Hay que preservarlo antes
+        // de borrar — si no, el delete() de abajo lo destruye en la misma
+        // llamada, antes de que el propio calcular() llegue a leerlo, y la
+        // variable queda en 0 en cada recálculo sin importar lo guardado.
+        $entradasTablaEquivalencia = $evaluacion->puntajes()
+            ->where('tipo_calculo', Variable::TIPO_TABLA_EQUIVALENCIA)
+            ->whereNotNull('valor_entrada')
+            ->get()
+            ->keyBy('variable_id');
+
         // Borrar puntajes anteriores si se recalcula
         $evaluacion->puntajes()->delete();
 
@@ -63,6 +75,11 @@ class CalculadorService
                         ->firstWhere('etapa_id', $variable->etapa_id);
 
                     [$puntajeBruto, $detalle, $indicadorId, $valorEntrada] = $this->etapaScore($postulacionEtapa);
+                } elseif ($variable->tipo_calculo === Variable::TIPO_TABLA_EQUIVALENCIA) {
+                    [$puntajeBruto, $detalle, $indicadorId, $valorEntrada] = $this->tablaEquivalencia(
+                        $variable,
+                        $entradasTablaEquivalencia->get($variable->id)
+                    );
                 } else {
                     // Obtener evidencias aprobadas de esta variable
                     $evidencias = $this->evidenciasAprobadasDeVariable(
@@ -72,8 +89,7 @@ class CalculadorService
 
                     [$puntajeBruto, $detalle, $indicadorId, $valorEntrada] = $this->calcularVariable(
                         $variable,
-                        $evidencias,
-                        $evaluacion
+                        $evidencias
                     );
                 }
 
@@ -121,14 +137,12 @@ class CalculadorService
 
     private function calcularVariable(
         object $variable,
-        Collection $evidencias,
-        Evaluacion $evaluacion
+        Collection $evidencias
     ): array {
         return match ($variable->tipo_calculo) {
             Variable::TIPO_SUMA_CON_TOPE,
             Variable::TIPO_DATO_INSTITUCIONAL => $this->sumaConTope($variable, $evidencias),
             Variable::TIPO_MAYOR_VALOR         => $this->mayorValor($variable, $evidencias),
-            Variable::TIPO_TABLA_EQUIVALENCIA  => $this->tablaEquivalencia($variable, $evaluacion),
             default                            => [0.0, [], null, null],
         };
     }
@@ -191,21 +205,34 @@ class CalculadorService
      * y lo mapea contra la tabla de equivalencia del indicador.
      *
      * Ejemplo: nota de clase magistral 17.5 → busca en [{min:16,max:17,pts:6},{min:18,max:20,pts:8}...] → 6 pts
+     *
+     * $puntajeExistente se recibe ya resuelto por calcular() (ver
+     * $entradasTablaEquivalencia) — no se puede volver a consultar aquí
+     * porque calcular() ya borró los puntajes de la evaluación antes de
+     * llegar a este punto.
+     *
+     * La tabla de rangos se lee del snapshot (Indicador.tabla_equivalencia
+     * vía $variable->indicadores), no de $puntajeExistente->detalle: ese
+     * campo lo reescribe el propio calcular() en cada corrida con forma de
+     * "detalle de contribución" (para el desglose), no con la tabla de
+     * rangos original — usarlo como fuente de lectura hacía que la tabla se
+     * perdiera desde el segundo recálculo en adelante.
      */
-    private function tablaEquivalencia(object $variable, Evaluacion $evaluacion): array
+    private function tablaEquivalencia(object $variable, ?Puntaje $puntajeExistente): array
     {
-        // El evaluador debe haber guardado valor_entrada y el indicador previamente
-        $puntajeExistente = $evaluacion->puntajes()
-            ->where('variable_id', $variable->id)
-            ->first();
-
+        // El evaluador debe haber guardado valor_entrada previamente
         if (!$puntajeExistente || $puntajeExistente->valor_entrada === null) {
             return [0.0, [], null, null];
         }
 
         $valorEntrada = (float) $puntajeExistente->valor_entrada;
         $indicadorId  = $puntajeExistente->indicador_id;
-        $tabla        = $puntajeExistente->detalle['tabla_equivalencia'] ?? [];
+
+        $indicadores = collect($variable->indicadores ?? []);
+        $indicador   = $indicadorId
+            ? $indicadores->firstWhere('id', $indicadorId)
+            : $indicadores->first();
+        $tabla = (array) ($indicador['tabla_equivalencia'] ?? []);
 
         $puntajeMapeado = 0.0;
         foreach ($tabla as $rango) {
