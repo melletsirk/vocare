@@ -17,11 +17,6 @@ const form = reactive({
   name: '', email: '', dni: '', password: '', rol: '', is_active: true,
 })
 
-const rolBadge: Record<string, string> = {
-  admin:      'badge-red',
-  evaluador:  'badge-blue',
-  postulante: 'badge-green',
-}
 const rolLabel: Record<string, string> = {
   admin:      'Administrador',
   evaluador:  'Evaluador',
@@ -98,7 +93,6 @@ async function desactivar(user: any) {
           <thead>
             <tr>
               <th>Nombre</th>
-              <th>Email</th>
               <th>DNI</th>
               <th>Rol</th>
               <th>Estado</th>
@@ -109,20 +103,18 @@ async function desactivar(user: any) {
           <tbody>
             <tr v-for="u in usuarios" :key="u.id">
               <td>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-3">
                   <div class="avatar-sm">{{ initials(u.name) }}</div>
-                  <span class="font-medium">{{ u.name }}</span>
+                  <div class="min-w-0">
+                    <div class="font-medium truncate">{{ u.name }}</div>
+                    <div class="text-xs text-muted truncate">{{ u.email }}</div>
+                  </div>
                 </div>
               </td>
-              <td class="text-sm text-muted">{{ u.email }}</td>
-              <td class="text-sm">{{ u.dni || '—' }}</td>
+              <td class="text-sm text-muted">{{ u.dni || '—' }}</td>
+              <td class="text-sm">{{ rolLabel[u.roles?.[0]] ?? u.roles?.[0] ?? '—' }}</td>
               <td>
-                <span class="badge" :class="rolBadge[u.roles?.[0]] ?? 'badge-gray'">
-                  {{ rolLabel[u.roles?.[0]] ?? u.roles?.[0] ?? '—' }}
-                </span>
-              </td>
-              <td>
-                <span class="badge" :class="u.is_active ? 'badge-green' : 'badge-red'">
+                <span class="badge" :class="u.is_active ? 'badge-green' : 'badge-gray'">
                   {{ u.is_active ? 'Activo' : 'Inactivo' }}
                 </span>
               </td>

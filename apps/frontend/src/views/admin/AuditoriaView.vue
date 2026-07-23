@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import api from '@/services/api'
 
 const logs    = ref<any[]>([])
@@ -19,11 +19,30 @@ async function cargar() {
   loading.value = false
 }
 
-const eventColor: Record<string, string> = {
-  'auth.login': 'badge-green', 'auth.logout': 'badge-gray',
-  'usuario.creado': 'badge-blue', 'usuario.desactivado': 'badge-red',
-  'evaluacion.cerrada': 'badge-green', 'resultados.publicados': 'badge-indigo',
+// "convocatoria.creada" → "convocatoria — creada" — sin mantener un mapa de
+// traducción para cada evento posible que exista hoy o se agregue después.
+function humanizar(event: string): string {
+  return event.split('.').map((p) => p.replace(/_/g, ' ')).join(' — ')
 }
+
+// Un punto de color discreto, no una píldora saturada — basta para escanear
+// qué tipo de evento fue sin competir visualmente con el texto.
+function categoria(event: string): 'success' | 'danger' | 'warn' | 'neutral' {
+  if (/rechazad|desactivad|eliminad/.test(event)) return 'danger'
+  if (/observad|empate/.test(event)) return 'warn'
+  if (/cerrad|activad|public|aprobad|resuelto/.test(event)) return 'success'
+  return 'neutral'
+}
+
+const gruposPorDia = computed(() => {
+  const mapa = new Map<string, any[]>()
+  for (const log of logs.value) {
+    const key = new Date(log.created_at).toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' })
+    if (!mapa.has(key)) mapa.set(key, [])
+    mapa.get(key)!.push(log)
+  }
+  return [...mapa.entries()]
+})
 </script>
 
 <template>
@@ -41,25 +60,23 @@ const eventColor: Record<string, string> = {
 
     <div v-if="loading" class="loading-center"><span class="spinner"></span></div>
 
-    <div v-else class="card" style="padding:0">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Fecha</th><th>Usuario</th><th>Evento</th><th>IP</th></tr>
-          </thead>
-          <tbody>
-            <tr v-for="log in logs" :key="log.id">
-              <td class="text-sm text-muted" style="white-space:nowrap">
-                {{ new Date(log.created_at).toLocaleString('es-PE') }}
-              </td>
-              <td class="text-sm">{{ log.user?.name ?? 'Sistema' }}</td>
-              <td>
-                <span class="badge" :class="eventColor[log.event] ?? 'badge-gray'">{{ log.event }}</span>
-              </td>
-              <td class="text-xs text-muted">{{ log.ip_address ?? '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
+    <div v-else-if="logs.length === 0" class="card">
+      <div class="empty-state">
+        <h3>Sin eventos</h3>
+        <p>No hay actividad registrada que coincida con los filtros.</p>
+      </div>
+    </div>
+
+    <div v-else>
+      <div v-for="[dia, items] in gruposPorDia" :key="dia" class="audit-day-group">
+        <div class="audit-day-label">{{ dia }}</div>
+        <div v-for="log in items" :key="log.id" class="audit-row">
+          <span class="audit-time">{{ new Date(log.created_at).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) }}</span>
+          <span class="audit-dot" :class="`is-${categoria(log.event)}`"></span>
+          <span class="audit-actor">{{ log.user?.name ?? 'Sistema' }}</span>
+          <span class="audit-event">{{ humanizar(log.event) }}</span>
+          <span class="audit-ip">{{ log.ip_address ?? '' }}</span>
+        </div>
       </div>
     </div>
   </div>
