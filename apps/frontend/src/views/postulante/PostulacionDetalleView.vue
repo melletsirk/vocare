@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
+import Icon from '@/components/ui/Icon.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -152,7 +153,9 @@ async function enviar() {
         <span v-if="sending" class="spinner"></span>
         {{ sending ? 'Enviando...' : 'Enviar postulación formalmente' }}
       </button>
-      <span v-else class="text-sm text-muted">✅ Postulación enviada</span>
+      <span v-else class="text-sm text-muted flex items-center gap-2">
+        <Icon name="check-circle" :size="16" /> Postulación enviada
+      </span>
     </div>
   </div>
 </template>

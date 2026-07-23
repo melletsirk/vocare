@@ -2,6 +2,7 @@
 import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
+import Icon from '@/components/ui/Icon.vue'
 
 const auth = useAuthStore()
 
@@ -21,19 +22,19 @@ onMounted(async () => {
       // Conteos accionables: cada tarjeta lleva al listado ya filtrado, no
       // es solo un número informativo (design.md — regla de admin).
       stats.value = [
-        { label: 'Convocatorias Activas', value: convs.filter((c: any) => c.estado === 'publicada' || c.estado === 'en_proceso').length, color: '#2563eb', icon: '📋', to: '/convocatorias?estado=en_proceso' },
-        { label: 'Total Convocatorias',   value: convsRes.data.total ?? convs.length, color: '#7c3aed', icon: '📁', to: '/convocatorias' },
-        { label: 'En Proceso',            value: convs.filter((c: any) => c.estado === 'en_proceso').length, color: '#d97706', icon: '⏳', to: '/convocatorias?estado=en_proceso' },
-        { label: 'Cerradas',              value: convs.filter((c: any) => c.estado === 'cerrada').length, color: '#16a34a', icon: '✅', to: '/convocatorias?estado=cerrada' },
+        { label: 'Convocatorias Activas', value: convs.filter((c: any) => c.estado === 'publicada' || c.estado === 'en_proceso').length, color: '#2563eb', icon: 'clipboard', to: '/convocatorias?estado=en_proceso' },
+        { label: 'Total Convocatorias',   value: convsRes.data.total ?? convs.length, color: '#7c3aed', icon: 'grid', to: '/convocatorias' },
+        { label: 'En Proceso',            value: convs.filter((c: any) => c.estado === 'en_proceso').length, color: '#d97706', icon: 'clock', to: '/convocatorias?estado=en_proceso' },
+        { label: 'Cerradas',              value: convs.filter((c: any) => c.estado === 'cerrada').length, color: '#16a34a', icon: 'check-circle', to: '/convocatorias?estado=cerrada' },
       ]
     } else if (auth.isPostulante) {
       const postsRes = await api.get('/postulaciones')
       const posts    = postsRes.data.data ?? []
       stats.value = [
-        { label: 'Mis Postulaciones',      value: posts.length, color: '#2563eb', icon: '📝', to: '/mis-postulaciones' },
-        { label: 'En Proceso',             value: posts.filter((p: any) => p.estado === 'en_proceso').length, color: '#d97706', icon: '⏳', to: '/mis-postulaciones' },
-        { label: 'Aprobadas',              value: posts.filter((p: any) => p.estado === 'aprobada_etapa').length, color: '#16a34a', icon: '✅', to: '/mis-postulaciones' },
-        { label: 'Convocatorias Abiertas', value: convs.filter((c: any) => c.estado === 'publicada').length, color: '#7c3aed', icon: '📣', to: '/convocatorias?estado=publicada' },
+        { label: 'Mis Postulaciones',      value: posts.length, color: '#2563eb', icon: 'file-text', to: '/mis-postulaciones' },
+        { label: 'En Proceso',             value: posts.filter((p: any) => p.estado === 'en_proceso').length, color: '#d97706', icon: 'clock', to: '/mis-postulaciones' },
+        { label: 'Aprobadas',              value: posts.filter((p: any) => p.estado === 'aprobada_etapa').length, color: '#16a34a', icon: 'check-circle', to: '/mis-postulaciones' },
+        { label: 'Convocatorias Abiertas', value: convs.filter((c: any) => c.estado === 'publicada').length, color: '#7c3aed', icon: 'send', to: '/convocatorias?estado=publicada' },
       ]
     }
   } catch (e) {
@@ -66,8 +67,8 @@ onMounted(async () => {
           class="stat-card"
           style="cursor:pointer;text-decoration:none;color:inherit"
         >
-          <div class="stat-icon" :style="{ background: stat.color + '18' }">
-            <span style="font-size:1.5rem">{{ stat.icon }}</span>
+          <div class="stat-icon" :style="{ background: stat.color + '18', color: stat.color }">
+            <Icon :name="stat.icon" :size="22" />
           </div>
           <div>
             <div class="stat-value">{{ stat.value }}</div>

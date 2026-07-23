@@ -2,6 +2,7 @@
 import { ref, reactive, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
+import Icon from '@/components/ui/Icon.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -325,7 +326,9 @@ const vigenciaLabel = (ev: any) => {
           :disabled="cerrando"
           @click="cerrarEvaluacion"
         >
-          {{ cerrando ? 'Cerrando...' : '🔒 Cerrar evaluación' }}
+          <span v-if="cerrando" class="spinner"></span>
+          <Icon v-else name="lock" :size="14" />
+          {{ cerrando ? 'Cerrando...' : 'Cerrar evaluación' }}
         </button>
         <span v-else-if="evaluacion.estado === 'cerrada'" class="badge badge-green">Cerrada</span>
       </div>
@@ -347,7 +350,8 @@ const vigenciaLabel = (ev: any) => {
             (Rubro {{ pasoActual.rubroIndex }} de {{ pasoActual.rubroTotal }})
           </span>
           <button class="btn btn-ghost btn-sm" @click="mostrarNavegador = !mostrarNavegador">
-            {{ pasoActual.rubroNombre }} › {{ pasoActual.variable.nombre }} {{ mostrarNavegador ? '▴' : '▾' }}
+            {{ pasoActual.rubroNombre }} › {{ pasoActual.variable.nombre }}
+            <Icon :name="mostrarNavegador ? 'chevron-up' : 'chevron-down'" :size="14" />
           </button>
         </div>
         <div class="progress-bar">
@@ -363,7 +367,8 @@ const vigenciaLabel = (ev: any) => {
           :style="idx === pasoActualIndex ? 'background:var(--clr-primary-50)' : ''"
           @click="irA(idx); mostrarNavegador = false"
         >
-          <span>{{ p.puntajeRow ? '✅' : (idx === pasoActualIndex ? '●' : '○') }}</span>
+          <Icon v-if="p.puntajeRow" name="check-circle" :size="14" style="color:var(--clr-success-600)" />
+          <span v-else>{{ idx === pasoActualIndex ? '●' : '○' }}</span>
           <span class="text-sm" :class="idx === pasoActualIndex ? 'font-semibold' : ''">
             {{ p.rubroNombre }} › {{ p.variable.nombre }}
           </span>
@@ -392,7 +397,8 @@ const vigenciaLabel = (ev: any) => {
           class="alert alert-info mb-3"
           style="margin:0 1.25rem 1rem"
         >
-          🏛 Fuente institucional: {{ pasoActual.variable.fuente_verificacion || 'no especificada' }}
+          <Icon name="briefcase" :size="16" />
+          Fuente institucional: {{ pasoActual.variable.fuente_verificacion || 'no especificada' }}
         </div>
 
         <div style="padding:0 1.25rem 1.25rem">
@@ -403,19 +409,26 @@ const vigenciaLabel = (ev: any) => {
             </div>
             <div v-else>
               <div v-if="!pasoActual.postulacionEtapa.fecha_realizada && pasoActual.postulacionEtapa.estado === 'pendiente'" class="alert alert-warning">
-                🕐 {{ pasoActual.postulacionEtapa.fecha_programada
-                  ? `Programada para ${pasoActual.postulacionEtapa.fecha_programada}, aún no ha ocurrido.`
-                  : 'Sin programar todavía.' }}
-                No hay nada que registrar hasta que el evento ocurra.
+                <Icon name="clock" :size="16" />
+                <span>
+                  {{ pasoActual.postulacionEtapa.fecha_programada
+                    ? `Programada para ${pasoActual.postulacionEtapa.fecha_programada}, aún no ha ocurrido.`
+                    : 'Sin programar todavía.' }}
+                  No hay nada que registrar hasta que el evento ocurra.
+                </span>
               </div>
 
               <div v-else-if="pasoActual.postulacionEtapa.estado === 'aprobada'" class="alert alert-info">
-                ✅ Resultado registrado: {{ pasoActual.postulacionEtapa.puntaje_bruto_evento }} pts
-                el {{ pasoActual.postulacionEtapa.fecha_realizada }}.
+                <Icon name="check-circle" :size="16" />
+                <span>
+                  Resultado registrado: {{ pasoActual.postulacionEtapa.puntaje_bruto_evento }} pts
+                  el {{ pasoActual.postulacionEtapa.fecha_realizada }}.
+                </span>
               </div>
 
               <div v-else-if="pasoActual.postulacionEtapa.estado === 'no_presentado'" class="alert alert-error">
-                ❌ Marcado como no presentado — aporta 0 puntos.
+                <Icon name="x-circle" :size="16" />
+                <span>Marcado como no presentado — aporta 0 puntos.</span>
               </div>
 
               <template v-if="pasoActual.postulacionEtapa.fecha_realizada || pasoActual.postulacionEtapa.estado !== 'pendiente'">
@@ -459,7 +472,7 @@ const vigenciaLabel = (ev: any) => {
           <template v-else-if="pasoActual.variable.tipo_calculo === 'TABLA_EQUIVALENCIA'">
             <div v-if="pasoActual.evidencias[0]" class="mb-3">
               <button class="btn btn-secondary btn-sm mb-2" @click="verDocumento(pasoActual.evidencias[0].evidencia)">
-                📄 Ver documento
+                <Icon name="file-text" :size="14" /> Ver documento
               </button>
               <div v-if="documentoUrl && documentoIdActual === pasoActual.evidencias[0].evidencia.id">
                 <iframe v-if="documentoTipo === 'application/pdf'" :src="documentoUrl" style="width:100%;height:400px;border:1px solid var(--surface-border);border-radius:8px"></iframe>
@@ -531,12 +544,14 @@ const vigenciaLabel = (ev: any) => {
               >
                 <div class="flex justify-between items-center mb-2">
                   <span class="badge" :class="evidEstadoBadge[piv.estado_en_postulacion]">{{ piv.estado_en_postulacion }}</span>
-                  <span v-if="evidenciaGanadora(pasoActual)?.id === piv.id" class="badge badge-blue">● Aplica</span>
+                  <span v-if="evidenciaGanadora(pasoActual)?.id === piv.id" class="badge badge-blue">
+                    <Icon name="check-circle" :size="12" /> Aplica
+                  </span>
                 </div>
                 <p class="font-medium text-sm mb-1">{{ piv.evidencia?.nombre_original }}</p>
                 <span class="badge mb-2" :class="vigenciaBadge(piv)">{{ vigenciaLabel(piv) }}</span>
 
-                <button class="btn btn-ghost btn-sm mb-2" @click="verDocumento(piv.evidencia)">📄 Ver documento</button>
+                <button class="btn btn-ghost btn-sm mb-2" @click="verDocumento(piv.evidencia)"><Icon name="file-text" :size="14" /> Ver documento</button>
                 <div v-if="documentoUrl && documentoIdActual === piv.evidencia.id" class="mb-2">
                   <iframe v-if="documentoTipo === 'application/pdf'" :src="documentoUrl" style="width:100%;height:250px;border:1px solid var(--surface-border);border-radius:6px"></iframe>
                   <img v-else :src="documentoUrl" style="max-width:100%;border-radius:6px" />
@@ -577,7 +592,7 @@ const vigenciaLabel = (ev: any) => {
               </div>
               <p class="font-medium text-sm mb-2">{{ piv.evidencia?.nombre_original }}</p>
 
-              <button class="btn btn-ghost btn-sm mb-2" @click="verDocumento(piv.evidencia)">📄 Ver documento</button>
+              <button class="btn btn-ghost btn-sm mb-2" @click="verDocumento(piv.evidencia)"><Icon name="file-text" :size="14" /> Ver documento</button>
               <div v-if="documentoUrl && documentoIdActual === piv.evidencia.id" class="mb-3">
                 <iframe v-if="documentoTipo === 'application/pdf'" :src="documentoUrl" style="width:100%;height:400px;border:1px solid var(--surface-border);border-radius:8px"></iframe>
                 <img v-else :src="documentoUrl" style="max-width:100%;border-radius:8px" />

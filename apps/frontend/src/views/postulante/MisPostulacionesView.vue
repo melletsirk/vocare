@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
+import Icon from '@/components/ui/Icon.vue'
 
 const router    = useRouter()
 const authStore = useAuthStore()
@@ -23,7 +24,7 @@ const estadoBadge: Record<string, string> = {
 }
 const estadoLabel: Record<string, string> = {
   en_proceso: 'En proceso', observada: 'Observada',
-  rechazada: 'Rechazada', aprobada_etapa: 'Aprobada', ganadora: '🏆 Ganadora',
+  rechazada: 'Rechazada', aprobada_etapa: 'Aprobada', ganadora: 'Ganadora',
 }
 
 async function fetchPostulaciones() {
@@ -124,6 +125,7 @@ async function submitPostulacion() {
               </td>
               <td>
                 <span class="badge" :class="estadoBadge[p.estado] || 'badge-gray'">
+                  <Icon v-if="p.estado === 'ganadora'" name="award" :size="12" />
                   {{ estadoLabel[p.estado] ?? p.estado }}
                 </span>
               </td>
@@ -143,7 +145,7 @@ async function submitPostulacion() {
       <div class="modal">
         <div class="modal-header">
           <h2>Nueva postulación</h2>
-          <button class="btn btn-ghost btn-icon" @click="showModal = false">✕</button>
+          <button class="btn btn-ghost btn-icon" @click="showModal = false"><Icon name="x" :size="18" /></button>
         </div>
         <div class="modal-body">
           <div class="form-group mb-4">

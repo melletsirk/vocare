@@ -3,6 +3,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
+import Icon from '@/components/ui/Icon.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -187,25 +188,25 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
     <!-- Info rápida -->
     <div class="stats-grid mb-4">
       <div class="stat-card">
-        <div class="stat-icon" style="background:#eff6ff">📋</div>
+        <div class="stat-icon" style="background:#eff6ff;color:#2563eb"><Icon name="clipboard" :size="22" /></div>
         <div><div class="stat-value">{{ plazas.length }}</div><div class="stat-label">Plazas</div></div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:#f0fdf4">✅</div>
+        <div class="stat-icon" style="background:#f0fdf4;color:#16a34a"><Icon name="check-circle" :size="22" /></div>
         <div>
           <div class="stat-value">{{ plazas.filter(p => p.estado === 'cubierta').length }}</div>
           <div class="stat-label">Cubiertas</div>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:#fffbeb">📅</div>
+        <div class="stat-icon" style="background:#fffbeb;color:#d97706"><Icon name="calendar" :size="22" /></div>
         <div>
           <div class="stat-value">{{ new Date(conv.fecha_inicio).toLocaleDateString('es-PE') }}</div>
           <div class="stat-label">Inicio</div>
         </div>
       </div>
       <div class="stat-card">
-        <div class="stat-icon" style="background:#fef2f2">🏁</div>
+        <div class="stat-icon" style="background:#fef2f2;color:#dc2626"><Icon name="flag" :size="22" /></div>
         <div>
           <div class="stat-value">{{ new Date(conv.fecha_fin).toLocaleDateString('es-PE') }}</div>
           <div class="stat-label">Fin</div>
@@ -214,14 +215,14 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
     </div>
 
     <!-- Tabs -->
-    <div class="flex gap-1 mb-4" style="border-bottom:1px solid var(--surface-border)">
+    <div class="tabs">
       <button
         v-for="t in (canManage
           ? [['plazas','Plazas'],['tabla','Tabla Evaluación'],['postulantes','Postulantes'],['evaluaciones','Evaluaciones'],['asignaciones','Asignaciones']]
           : [['plazas','Plazas'],['tabla','Tabla Evaluación']])"
         :key="t[0]"
-        class="btn btn-ghost"
-        :style="tab === t[0] ? 'border-bottom:2px solid var(--clr-primary-600);border-radius:0;color:var(--clr-primary-700);font-weight:600' : ''"
+        class="tab"
+        :class="{ active: tab === t[0] }"
         @click="tab = t[0] as any"
       >
         {{ t[1] }}
@@ -408,10 +409,11 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
                   <div v-for="a in asignacionesDe(p.id)" :key="a.id" class="flex items-center gap-2 mb-1">
                     <span class="badge badge-blue">{{ a.evaluador?.name ?? a.evaluador_id }}</span>
                     <button
-                      class="btn btn-ghost btn-sm"
+                      class="btn btn-ghost btn-icon btn-sm"
                       :disabled="quitando[a.id]"
+                      title="Quitar asignación"
                       @click="quitarAsignacion(a.id)"
-                    >✕</button>
+                    ><Icon name="x" :size="14" /></button>
                   </div>
                 </td>
                 <td>
@@ -442,7 +444,7 @@ const canManage = auth.isAdmin || auth.rol === 'admin_convocatoria'
       <div class="modal">
         <div class="modal-header">
           <h2>Agregar plaza</h2>
-          <button class="btn btn-ghost btn-icon" @click="showPlazaModal = false">✕</button>
+          <button class="btn btn-ghost btn-icon" @click="showPlazaModal = false"><Icon name="x" :size="18" /></button>
         </div>
         <div class="modal-body">
           <div class="form-group mb-4">
